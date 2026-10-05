@@ -97,7 +97,13 @@ export async function fetchHandler(request, env) {
                 : e.message,
           request_id: requestId,
         },
-        { status, headers: { "cache-control": "no-store" } },
+        {
+          status,
+          headers: {
+            "cache-control": "no-store",
+            ...(e.headers || {}),
+          },
+        },
       ),
     );
   }

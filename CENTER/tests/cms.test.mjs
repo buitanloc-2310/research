@@ -134,3 +134,89 @@ test("CMS: researcher is blocked from Website CMS", async () => {
   cookie = old;
   assert.equal(x.status, 403);
 });
+
+test("CMS V3: revisions restore to Draft without changing Published until republish", async () => {
+  const created = await call("/admin/cms/pages", "POST", { slug: "revision-lab", title: "Revision Lab", description: "Revision regression" });
+  assert.equal(created.status, 201, JSON.stringify(created.d));
+  const pageId = created.d.id;
+  const block = await call("/admin/cms/blocks", "POST", { page_id: pageId, type: "heading", enabled: true, data: { title: "Version one", text: "one" } });
+  assert.equal(block.status, 201, JSON.stringify(block.d));
+  assert.equal((await call(`/admin/cms/blocks/${block.d.id}`, "PATCH", { type: "heading", enabled: true, data: { title: "Version two", text: "two" } })).status, 200);
+  assert.equal((await call(`/admin/cms/pages/${pageId}/publish`, "POST", {})).status, 200);
+  let pub = await call("/public/pages/revision-lab");
+  assert.equal(pub.d.page.blocks[0].data.title, "Version two");
+
+  assert.equal((await call(`/admin/cms/blocks/${block.d.id}`, "PATCH", { type: "heading", enabled: true, data: { title: "Version three", text: "three" } })).status, 200);
+  assert.equal((await call(`/admin/cms/blocks/${block.d.id}`, "PATCH", { type: "heading", enabled: true, data: { title: "Version four", text: "four" } })).status, 200);
+  pub = await call("/public/pages/revision-lab");
+  assert.equal(pub.d.page.blocks[0].data.title, "Version two", "Draft edits must not leak to Published snapshot");
+
+  const revisions = await call(`/admin/cms/pages/${pageId}/revisions`);
+  assert.equal(revisions.status, 200);
+  assert(revisions.d.items.length >= 4);
+  const newest = revisions.d.items[0];
+  const revision = await call(`/admin/cms/pages/${pageId}/revisions/${newest.id}`);
+  assert.equal(revision.status, 200);
+  assert.equal(revision.d.revision.snapshot.blocks[0].data.title, "Version three");
+
+  assert.equal((await call(`/admin/cms/pages/${pageId}/restore`, "POST", { revision_id: newest.id })).status, 200);
+  const draft = await call(`/admin/cms/pages/${pageId}/preview`);
+  assert.equal(draft.d.page.blocks[0].data.title, "Version three");
+  pub = await call("/public/pages/revision-lab");
+  assert.equal(pub.d.page.blocks[0].data.title, "Version two", "Restore must remain Draft until republished");
+  assert.equal((await call(`/admin/cms/pages/${pageId}/publish`, "POST", {})).status, 200);
+  pub = await call("/public/pages/revision-lab");
+  assert.equal(pub.d.page.blocks[0].data.title, "Version three");
+  assert.equal((await call(`/admin/cms/pages/${pageId}`, "DELETE")).status, 200);
+});
+
+test("CMS V3: page duplicate copies blocks as an unpublished Draft", async () => {
+  const source = await call("/admin/cms/pages", "POST", { slug: "duplicate-source", title: "Duplicate Source" });
+  assert.equal(source.status, 201);
+  assert.equal((await call("/admin/cms/blocks", "POST", { page_id: source.d.id, type: "rich_text", enabled: true, data: { heading: "Source block", text: "Body" } })).status, 201);
+  const copy = await call(`/admin/cms/pages/${source.d.id}/duplicate`, "POST", {});
+  assert.equal(copy.status, 201, JSON.stringify(copy.d));
+  const copied = await call(`/admin/cms/pages/${copy.d.id}`);
+  assert.equal(copied.status, 200);
+  assert.equal(copied.d.page.status, "draft");
+  assert.equal(copied.d.page.noindex, true);
+  assert.equal(copied.d.page.blocks.length, 1);
+  assert.equal(copied.d.page.blocks[0].data.heading, "Source block");
+  assert.equal((await call(`/public/pages/${copy.d.slug}`)).status, 404);
+  assert.equal((await call(`/admin/cms/pages/${copy.d.id}`, "DELETE")).status, 200);
+  assert.equal((await call(`/admin/cms/pages/${source.d.id}`, "DELETE")).status, 200);
+});
+
+test("CMS V3: nested navigation is limited to two levels and exposed publicly", async () => {
+  const parent = await call("/admin/cms/navigation", "POST", { label: "Knowledge", url: "/explore", position: 70, enabled: true });
+  assert.equal(parent.status, 201);
+  const child = await call("/admin/cms/navigation", "POST", { label: "Publications", url: "/explore?type=publication", parent_id: parent.d.id, position: 1, enabled: true });
+  assert.equal(child.status, 201, JSON.stringify(child.d));
+  const site = await call("/public/site");
+  assert.equal(site.d.navigation.find(x => x.id === child.d.id).parent_id, parent.d.id);
+  const grandchild = await call("/admin/cms/navigation", "POST", { label: "Rejected", url: "/about", parent_id: child.d.id, enabled: true });
+  assert.equal(grandchild.status, 400);
+  assert.equal((await call("/admin/cms/navigation", "DELETE", { id: parent.d.id })).status, 200);
+  const after = await call("/admin/cms/navigation");
+  assert.equal(after.d.items.find(x => x.id === child.d.id).parent_id, null, "Deleting a parent promotes its child safely");
+  assert.equal((await call("/admin/cms/navigation", "DELETE", { id: child.d.id })).status, 200);
+});
+
+test("CMS V3: Media Cloud uses bounded server-side pagination and image dimensions", async () => {
+  const png1x1 = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
+  const ids = [];
+  for (const name of ["v3-a.png", "v3-b.png", "v3-c.png"]) {
+    const up = await call(`/admin/cms/media?name=${encodeURIComponent(name)}&alt=V3`, "POST", png1x1, true);
+    assert.equal(up.status, 201, JSON.stringify(up.d));
+    ids.push(up.d.id);
+  }
+  const page1 = await call("/admin/cms/media?q=v3-&type=image&page=1&limit=2");
+  assert.equal(page1.status, 200);
+  assert.equal(page1.d.limit, 2);
+  assert.equal(page1.d.items.length, 2);
+  assert(page1.d.total >= 3);
+  assert(page1.d.items.every(x => x.width === 1 && x.height === 1));
+  const page2 = await call("/admin/cms/media?q=v3-&type=image&page=2&limit=2");
+  assert(page2.d.items.length >= 1);
+  for (const id of ids) assert.equal((await call(`/admin/cms/media/${id}`, "DELETE")).status, 200);
+});

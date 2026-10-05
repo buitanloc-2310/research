@@ -1,112 +1,198 @@
-# BÁO CÁO NGHIỆM THU — PRODUCTION FINAL UX/CMS
+# FINAL ACCEPTANCE — RESEARCH CLOUD V3 ULTIMATE
 
-Ngày audit/sửa: **05/10/2026**  
-Hệ thống: **TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST**  
-English: **SKY FIRST RESEARCH & INNOVATION CENTER**  
-Production: `https://research.skyfirst.io.vn`
+**Ngày audit/sửa:** 05/10/2026  
+**Hệ thống:** TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST  
+**English:** SKY FIRST RESEARCH & INNOVATION CENTER  
+**Production:** `https://research.skyfirst.io.vn`
 
-## A. Source / production state
+> Báo cáo này chỉ đánh dấu PASS cho kiểm tra thực sự đã chạy trong môi trường bàn giao. Phần phụ thuộc Cloudflare production, provider secret hoặc browser runtime không khả dụng được ghi **NOT VERIFIED**.
 
-Bản này tiếp tục trực tiếp trên source Cloudflare Pages/Functions + D1 + R2 hiện có; không đổi stack, không dựng website demo và không bỏ các module nghiệp vụ.
+## A. Source audit / kiến trúc thực tế
 
-Các binding production được giữ nguyên:
+Source tiếp tục trên kiến trúc hiện hữu, không rebuild project và không đổi stack:
 
-- D1: binding `DB`, database `tt`, ID `0a75531f-b227-4a8b-bc26-dda1cc9a0004`
-- R2: binding `STORAGE`, bucket `ttrungtam`
-- Origin: `https://research.skyfirst.io.vn`
+- Frontend: vanilla ES modules + CSS, public website và authenticated workspace dùng cùng `public/app.js`/design system.
+- Cloudflare Pages static output: `public/`.
+- Cloudflare Pages Functions adapter: `functions/`.
+- Server/API: modules trong `src/`, entry qua worker adapter.
+- D1: auth/session/RBAC/audit/settings, business records/workflows và Website CMS.
+- R2: private object storage cho file nghiệp vụ và CMS media.
+- Email: Resend qua outbox D1/retry/idempotency hiện hữu.
+- CMS: `site_settings`, `cms_pages`, `cms_blocks`, `cms_navigation`, `cms_footer_links`, `cms_media`; V3 bổ sung `cms_revisions`.
+- Business modules được giữ: Research/Projects, Publications, Datasets, Researchers, Research Groups, Events, Tasks, Reviews, Ethics, Finance, Forms, Notifications và workflow liên quan.
+- First-time Setup hiện hữu được giữ và có regression test.
 
-Repository đã được quét lại: D1 ID đã nghỉ hưu không còn xuất hiện dưới dạng literal và không có production config nào tham chiếu ID cũ.
+Production bindings được giữ nguyên:
 
-Endpoint `/api/v1/public/settings` vẫn giữ fix từ vòng trước: schema drift/missing migration có thể làm D1 query ném lỗi và trả HTTP 500; source hiện có migration/schema guard, generic request ID và không lộ SQL/stack. Trong local runtime hiện tại endpoint trả **200**. Nguyên nhân chính xác từ production logs tại thời điểm sự cố vẫn là **NOT VERIFIED** vì phiên này không có Cloudflare production logs/D1 console.
+- D1 binding `DB` → database `tt` → ID `0a75531f-b227-4a8b-bc26-dda1cc9a0004`.
+- R2 binding `STORAGE` → bucket `ttrungtam`.
+- `APP_ORIGIN=https://research.skyfirst.io.vn`.
 
-## B. Files/modules quan trọng của vòng nâng cấp này
+D1 ID production đã được đối chiếu; repository không còn tham chiếu literal tới D1 ID đã ngừng sử dụng.
 
-- `public/app.js` — public renderer, Home/About/Explore/Contact, header/footer, login, states.
-- `public/style.css` — design system/UX responsive/light-dark và presentation toàn site.
-- `src/cms.js` — public site payload hợp nhất + bounded shared cache cho public CMS data.
-- `src/api.js` — bounded cache cho public settings compatibility endpoint.
-- `migrations/0005_public_experience.sql` — nâng starter CMS content an toàn, không auto-publish.
-- `tests/cms.test.mjs` — regression cho starter Draft, cache, CMS/R2 flow.
-- `tests/production.test.mjs` — production binding/CSP regression và không giữ literal D1 ID cũ.
-- `README.md`, `FINAL_ACCEPTANCE.md` — cập nhật vận hành/nghiệm thu.
+## B. Changes / file-module quan trọng
 
-Không tải/chèn ảnh Internet. Public runtime chỉ dùng logo/tài nguyên local hoặc media thật qua CMS/R2; visual trang chủ được dựng bằng HTML/CSS, không dùng ảnh AI.
+Các thay đổi chính của vòng V3:
 
-## C. Database / migration
+- `public/app.js`
+  - Research Cloud workspace shell mới.
+  - Command Palette `Ctrl/Cmd + K` và `/` focus global search.
+  - CMS-managed two-level public navigation.
+  - Cloud CMS Studio dashboard.
+  - Full Page Builder với device preview, drag/reorder, duplicate, Draft/Preview/Publish.
+  - Revision browser/restore-to-Draft.
+  - R2 Media Cloud search/filter/pagination/metadata/reference check.
+  - Site Identity + Global SEO controls.
+  - Dialog lifecycle/focus cleanup và keyboard behavior.
+- `public/style.css`
+  - Research Cloud V3 design system White/Navy/Sky/Cyan.
+  - Workspace/sidebar/topbar, CMS Studio, Media Cloud, Page Builder, Command Palette.
+  - Responsive 1280/1100/850/620/430 breakpoints.
+  - Designed dark mode, focus states và reduced motion.
+  - Public two-level navigation dropdown/mobile treatment.
+- `src/cms.js`
+  - CMS overview.
+  - Bounded/paginated media search.
+  - Bounded/paginated page listing.
+  - Revision snapshots + retention.
+  - Restore revision to Draft without changing Published snapshot.
+  - Duplicate page/block.
+  - Two-level navigation.
+  - Media dimensions/description/reference inspection.
+  - Safe-delete reference protection extended to global social image.
+- `src/api.js`
+  - Setup rate limit remains enforced but misconfiguration/already-initialized states no longer consume attempts.
+  - `429` includes safe retry guidance and `Retry-After`.
+- `src/security.js`, `src/worker.js`
+  - Safe error headers can be propagated without exposing internal exception data.
+- `src/seo.js`
+  - Global CMS-managed SEO defaults/social image.
+- `migrations/0006_research_cloud_v3.sql`
+  - additive CMS revisions/navigation/media/SEO schema and indexes.
+- `tests/cms.test.mjs`, `tests/extended.test.mjs`
+  - V3 regression coverage.
 
-Migration mới của vòng này: **`0005_public_experience.sql`**.
+Không tải hoặc chèn ảnh Internet. Runtime public chỉ dùng logo/asset có sẵn và media thật từ CMS/R2; visual không có media được dựng bằng CSS/HTML, không phụ thuộc ảnh AI.
 
-Migration chỉ nâng nội dung starter nếu page vẫn là bản mặc định chưa được quản trị viên sửa/publish (`status='draft'`, `published_snapshot IS NULL`, `updated_by IS NULL`). Trang đã chỉnh hoặc đã publish không bị ghi đè.
+## C. UI/UX
 
-Migration:
+### Public website
 
-- cập nhật copy/SEO/canonical cho Home/About/Contact/Privacy starter;
-- bổ sung các block CMS cho quy trình, lĩnh vực, cách tiếp cận và CTA;
-- dùng `INSERT OR IGNORE` khi thêm block;
-- không `DROP`, không reset DB, không xóa dữ liệu;
-- **không auto-publish**: starter pages vẫn Draft để giữ đúng Draft → Preview → Publish.
+Design system tiếp tục theo hướng institutional/editorial: White + Navy + Sky Blue/Cyan, border/shadow nhẹ, typography rõ, animation dùng transform/opacity và tôn trọng `prefers-reduced-motion`.
 
-CMS schema hiện hữu `site_settings`, `cms_pages`, `cms_blocks`, `cms_navigation`, `cms_footer_links`, `cms_media` được giữ nguyên.
+Home/About/Explore/Contact, content cards, loading/error/empty states, header/footer/login từ source hiện hữu được giữ và polish để đồng nhất với V3. Public navigation hiện hỗ trợ tối đa hai cấp từ CMS và có dropdown desktop + stack mobile. Không thêm số liệu/đối tác/thành tích giả.
 
-## D. Public UX
+### Auth / Login / First-time Setup
 
-### Home
+Login/Setup giữ cùng nhận diện và backend auth hiện hữu. Setup chỉ xuất hiện khi backend trả `required=true`; sau initialized, `#setup` quay về Login. Password visibility/accessibility và error/request ID được giữ.
 
-- Hero được polish theo visual direction nhưng không dùng ảnh AI.
-- Lĩnh vực trọng tâm: Giáo dục & học tập; Công nghệ & sáng tạo; Cộng đồng & phát triển; Dữ liệu & tri thức mở.
-- Quy trình: Tiếp nhận ý tưởng → Nghiên cứu & phát triển → Công bố & chia sẻ → Tạo tác động.
-- Nội dung mới lấy từ **record public thật**; không tạo social-proof giả và không dựng số `0+ / 100+`.
-- Có lối vào Publications/Datasets/Events và CTA kết nối.
+### Research Management Workspace
 
-### About
+- Sidebar Navy, hierarchy rõ, responsive drawer.
+- Sticky topbar, global search, account/theme controls.
+- Command Palette để điều hướng nhanh tới module thật.
+- Existing business data/workflow/RBAC không bị thay bằng fake analytics.
 
-- Sứ mệnh, tầm nhìn, giá trị cốt lõi, lĩnh vực, cách tiếp cận, nhóm có thể kết nối và CTA được tổ chức bằng grid/cards/process; nội dung ngắn và tránh paragraph dài.
+### Cloud CMS Studio
 
-### Explore / Publications / Datasets / Events
+Dashboard CMS có KPI từ D1 thật, Pages, recent audit activity, Site Identity/SEO, Header/Navigation, Footer Builder và Media Cloud. Không dùng localStorage làm CMS persistence.
 
-- Search, select filter, category chips, pagination.
-- Layout riêng cho Events, Publications, Datasets thay vì dùng một card cho mọi loại.
-- Loading/error theo hệ thống hiện hữu; empty state mới có hành động xóa/đổi bộ lọc.
-- Dữ liệu vẫn đến từ public API/backend thật.
+## D. Cloud CMS / Page Builder
 
-### Contact
+Các chức năng có backend persistence thật:
 
-- 4 nhu cầu kết nối: hợp tác nghiên cứu, đề xuất ý tưởng, truyền thông/đối tác, hỗ trợ hệ thống.
-- Chỉ dùng thông tin chính thức được cung cấp: `research@skyfirst.io.vn`, `support@skyfirst.io.vn`, `0924 910 210`, `research.skyfirst.io.vn`.
-- Không tạo form giả khi source không có public submit workflow phù hợp.
+- Site identity: tên Việt/Anh, tagline, description, logo/favicon, contact/social, copyright.
+- Global SEO: title, description, default social image, theme color.
+- Navigation: CRUD, visibility, external/new-tab, ordering, parent/child tối đa 2 cấp.
+- Footer: CRUD, cột/heading/label/URL/order/visibility.
+- Pages: create/update/delete custom page; system pages được bảo vệ.
+- Block types giữ nguyên: Hero, Heading, Rich Text, Image, CTA, Statistics, Cards, Feature Grid, Partners/Links, FAQ.
+- Block create/edit/delete/enable/disable/reorder/duplicate.
+- Drag/drop reorder + ↑/↓ fallback.
+- Draft preview với Desktop/Tablet/Mobile canvas.
+- Publish tạo Published snapshot; Draft tiếp theo không rò ra public.
+- Duplicate page luôn tạo Draft + noindex.
+- Revision History: tự lưu trước thay đổi quan trọng, tối đa 50 revision/page.
+- Restore revision chỉ khôi phục Draft; Published snapshot cũ giữ nguyên tới lần Publish mới.
 
-### Header / Footer / Login
+## E. Database / migration
 
-- Header sticky gọn, active state, login CTA, theme switch và mobile navigation.
-- Footer theo cấu trúc **Brand / Trung tâm / Khám phá / Hệ sinh thái Sky First / Kết nối**; chỉ dùng các ecosystem/social URL được cho phép, không thêm YouTube/TikTok/địa chỉ.
-- Copyright fallback chính xác: `© 2026 Trung tâm Nghiên cứu Đổi mới & Sáng tạo Sky First.`
-- Login giữ nguyên authentication logic, thêm hierarchy/branding/password visibility/accessibility; không hard-code account/password.
+Migration mới: **`migrations/0006_research_cloud_v3.sql`**.
 
-## E. CMS / persistence
+Additive changes:
 
-Website CMS không bị thay thế bởi hard-code. Public renderer ưu tiên page snapshot đã publish từ D1. Starter fallback chỉ là lớp an toàn trước khi starter CMS page được publish; migration `0005` đã chuẩn bị cùng nội dung ở D1 để quản trị viên có thể Preview/Publish và tiếp tục chỉnh mà không mở source.
+- `cms_revisions` + unique/page-created indexes.
+- index `cms_pages(status, updated_at)`.
+- `cms_navigation.parent_id` + parent/position index.
+- `cms_media.width`, `height`, `description`, `updated_at` + indexes.
+- Site Settings: `global_seo_title`, `global_seo_description`, `default_social_media_id`, `theme_color`.
+- CMS starter Home bổ sung knowledge portal block **chỉ khi Home vẫn là untouched Draft**; không auto-publish, không ghi đè page đã chỉnh/publish.
 
-Site Settings, menu, footer, page blocks, SEO và media vẫn quản trị từ Admin. Draft không tự xuất hiện public; Publish tạo snapshot ổn định. R2 Media Library và business modules/RBAC/workflow không bị bỏ.
+Không có `DROP`, reset DB hoặc tạo database mới. `ALTER TABLE ADD COLUMN` dựa trên D1 migration history chuẩn; vì vậy trước production phải đối chiếu `d1_migrations`/schema, không chạy lại migration đã áp thủ công một cách mù quáng.
 
-## F. Performance / security
+## F. Media / R2
 
-- `/api/v1/public/site` hợp nhất các public legacy setting cần thiết để frontend không phải gọi thêm public settings trong luồng bình thường.
-- Public site/page/settings response dùng cache có giới hạn: `max-age=30`, `s-maxage=120`, `stale-while-revalidate=300`.
-- Search backend vẫn sử dụng pagination/limit của source; không thêm query toàn bảng/N+1 ở frontend.
-- Auth/session/RBAC/CSRF/IDOR/password reset/audit/private R2 được giữ nguyên.
-- CSP Cloudflare Analytics vẫn allowlist hẹp; không dùng `script-src *`.
-- Không đưa Resend/API/setup/maintenance secret ra frontend.
+Media Cloud tiếp tục dùng binding `STORAGE` và bucket `ttrungtam`:
 
-## G. Test results
+- Upload binary thật vào R2; D1 chỉ lưu metadata/reference.
+- Server-side search/filter/page/limit; `limit` bị chặn trên server.
+- PNG/GIF/JPEG/VP8X WebP có thể ghi width/height khi header hỗ trợ.
+- ALT text + description metadata.
+- Reference inspection.
+- Public media chỉ đọc được khi đang được Site Settings hoặc Published snapshot tham chiếu theo policy hiện hữu.
+- Delete bị chặn khi media đang được tham chiếu.
+- Không chấp nhận SVG trong CMS upload path hiện hữu; file size/signature/MIME validation được giữ.
+
+Remote R2 production: **NOT VERIFIED — không có Cloudflare production credentials trong môi trường này**.
+
+## G. Security
+
+Đã bảo toàn/kiểm tra bằng automated suite:
+
+- session/authentication;
+- RBAC backend enforcement;
+- CSRF/origin/`X-Requested-With` write protection;
+- IDOR/business ACL;
+- PBKDF2 password handling;
+- password reset/session revocation;
+- immutable/audited system-admin protections;
+- CMS `settings` permission; Publish cần `publish`;
+- private R2 access;
+- SQL parameterization;
+- public settings allowlist;
+- CSP không dùng wildcard script source;
+- error response chỉ trả safe message + request ID.
+
+### First-time Setup rate limiting
+
+- `SETUP_SECRET` vẫn chỉ đọc server-side.
+- Setup giới hạn 10 attempts / 15 phút / IP theo runtime hiện tại.
+- Missing server `SETUP_SECRET` và trạng thái already initialized không tiêu hao attempts.
+- Brute-force vượt ngưỡng trả HTTP `429` + `Retry-After` và message có thời gian chờ.
+- First-time Setup vẫn khóa sau khi Root Admin/initialization tồn tại.
+
+## H. Performance
+
+- Public Site/Settings cache policy hiện hữu được giữ: bounded shared caching.
+- Media Cloud dùng SQL filtering + `LIMIT/OFFSET` thay vì tải toàn library.
+- CMS Pages list hiện bounded tối đa 100/request và hỗ trợ query/status/page/limit ở API.
+- Revision list bounded 50/page và retention tự dọn revision cũ.
+- CMS overview/recent activity có `LIMIT`.
+- Không thêm N+1 media query trên public renderer.
+- Frontend motion chủ yếu transform/opacity; `prefers-reduced-motion` có override.
+
+Không đánh đổi correctness/RBAC để lấy điểm benchmark.
+
+## I. Tests — kết quả thực tế
 
 ### PASS
 
-- `node --check public/app.js`
-- `node --check src/cms.js`
-- `node --check src/api.js`
-- Automated Node suite: **72 PASS / 0 FAIL / 0 SKIPPED**.
-- Internal production syntax/config build: **PASS** (`node scripts/build.mjs`).
-- Local migration/runtime: migrations `0001` → `0005` áp thành công trên fresh SQLite D1-compatible runtime.
+- `npm test`: **77 PASS / 0 FAIL / 0 SKIPPED**.
+- `node scripts/build.mjs`: **PASS** — syntax/config/source validation.
+- `node --check public/app.js`: **PASS**.
+- `node --check src/cms.js`: **PASS**.
+- `node --check src/api.js`: **PASS**.
+- Local D1-compatible migrations `0001` → `0006`: **PASS** thông qua test runtime fresh DB.
 - Local HTTP smoke: **10 PASS / 0 FAIL**:
   - `/`
   - `/about`
@@ -116,48 +202,68 @@ Site Settings, menu, footer, page blocks, SEO và media vẫn quản trị từ 
   - `/robots.txt`
   - `/sitemap.xml`
   - `/api/v1/health`
-  - `/api/v1/public/site`
   - `/api/v1/public/settings`
-- `/api/v1/public/site` và `/api/v1/public/settings` local đều trả cache header mới đúng thiết kế.
+  - `/api/v1/public/site`
+- CMS V3 regression PASS:
+  - revision snapshot/list/read/restore;
+  - restore không thay Published trước Publish;
+  - duplicate page → Draft/noindex;
+  - nested nav 2 cấp, chặn cấp 3;
+  - Media Cloud pagination/filter/dimensions;
+  - safe media delete;
+  - Draft/Published isolation;
+  - CMS RBAC.
+- First-time Setup regression PASS:
+  - exactly PBKDF2 100,000 iterations;
+  - Root Admin creation/one-time lock;
+  - missing `SETUP_SECRET` không consume rate attempts;
+  - brute-force limit + `Retry-After`.
 
 ### NOT VERIFIED
 
-- Full `npm run build` qua Wrangler Pages Functions: **NOT VERIFIED**. Bước nội bộ PASS, nhưng môi trường này không cài hoàn tất dependency; `wrangler` binary không khả dụng nên bước `wrangler pages functions build` dừng exit 127.
-- Browser E2E/responsive visual/console-network: **NOT VERIFIED**. Chromium system trong sandbox treo và timeout do runtime DBus/zygote; không gán PASS giả.
-- Cloudflare D1/R2 remote: **NOT VERIFIED** vì không có production credentials/control plane.
-- Resend production delivery: **NOT VERIFIED** vì không có production secret.
+- `npm run build` full Wrangler Pages Functions: **NOT VERIFIED — environment dependency unavailable**. `node scripts/build.mjs` PASS, sau đó `wrangler` không có. Một lần `npm ci` đã được thử nhưng bị treo/timeout do package download trong sandbox; không báo PASS giả.
+- `npm run test:pages`: **NOT VERIFIED — cần local Wrangler/workerd + Playwright dependency**.
+- Browser responsive/visual/console E2E: **NOT VERIFIED**. System Chromium CLI được thử nhưng treo/timeout với DBus/EGL/zygote trong sandbox; không có screenshot mới hợp lệ để dùng làm bằng chứng.
+- Cloudflare D1/R2 remote: **NOT VERIFIED — không có account credentials/control plane**.
+- Resend production delivery: **NOT VERIFIED — không có production `RESEND_API_KEY`/provider access**.
+- Production Cloudflare Analytics console after deploy: **NOT VERIFIED**.
 
-## H. Production requirements
+## J. Production configuration
+
+Giữ chính xác:
 
 - `DB` / `tt` / `0a75531f-b227-4a8b-bc26-dda1cc9a0004`
 - `STORAGE` / `ttrungtam`
 - `APP_ORIGIN=https://research.skyfirst.io.vn`
 - `EMAIL_FROM=Sky First Research & Innovation Center <research@skyfirst.io.vn>`
 - `EMAIL_REPLY_TO=research@skyfirst.io.vn`
-- Server-side secrets nếu dùng: `RESEND_API_KEY`, `SETUP_SECRET`, `MAINTENANCE_SECRET`.
 
-## I. Deployment — thứ tự an toàn
+Server-side secrets/vars tùy chức năng:
+
+- `RESEND_API_KEY`
+- `SETUP_SECRET` — chỉ cần cho bootstrap; hệ thống đã initialized có thể không giữ secret này nếu quy trình vận hành đã hoàn tất.
+- `MAINTENANCE_SECRET`
+- `ADMIN_ALERT_EMAIL` nếu dùng.
+
+Không đưa các secret trên vào frontend/ZIP/Git.
+
+## K. Deployment order
 
 1. Backup/export D1 remote.
-2. Chạy `wrangler d1 migrations list tt --remote` và đối chiếu history thực tế.
-3. Chỉ áp migration còn thiếu; với source này migration mới là `0005_public_experience.sql`. Không chạy lại migration cũ mù quáng.
-4. Xác nhận `DB`, `STORAGE`, `APP_ORIGIN` và secrets production.
-5. Trên CI/máy có network: `npm ci` → `npm test` → `npm run build` → `npm run test:pages`/browser tests nếu môi trường hỗ trợ.
-6. Deploy Pages project hiện có.
-7. Smoke `/api/v1/health`, `/api/v1/public/site`, `/api/v1/public/settings`, public routes và login.
-8. Admin kiểm tra Website CMS: Settings → media → page → add/reorder block → menu/footer → Save Draft → Preview → Publish → refresh public.
-9. Smoke R2 thật và Resend thật bằng production credentials.
+2. Chạy `wrangler d1 migrations list tt --remote` và đối chiếu schema/history thật.
+3. Nếu 0001–0005 đã được áp đúng, chạy **chỉ migration còn thiếu `0006_research_cloud_v3.sql`** thông qua migration command chuẩn.
+4. Xác nhận D1/R2 binding và production variables/secrets.
+5. Trên CI/máy có network: `npm ci`.
+6. Chạy `npm test`.
+7. Chạy `npm run build` và yêu cầu full Wrangler step PASS trước deploy.
+8. Chạy `npm run test:pages`/browser suite nếu runtime có Playwright/Chromium ổn định.
+9. Deploy Pages project hiện có, output `public`, không đổi database/bucket.
+10. Smoke `/api/v1/health`, public settings/site/routes/login.
+11. Admin smoke Cloud CMS: Site Settings → Media → Page → add/edit/reorder → Save Draft → Preview → Publish → refresh public → sửa Draft → xác nhận public vẫn giữ Published → restore revision → xác nhận chỉ Draft → Publish lại.
+12. Smoke R2 và Resend thật trong production.
 
-## J. Known limitations / kết luận
+## L. Known limitations / kết luận
 
-Source đã hoàn thiện vòng UX/CMS này và các test có thể chạy trong sandbox đều PASS. Tuy nhiên theo tiêu chí nghiệm thu đã đặt, **không gắn nhãn PRODUCTION READY** cho tới khi full Wrangler Pages build, browser E2E và Cloudflare D1/R2/Resend production được verify trên môi trường có dependency/credentials phù hợp.
+Source V3 đã đạt PASS cho automated Node tests, D1-compatible CMS persistence tests, setup/rate-limit regressions, source/config build validation và local HTTP smoke. Full Wrangler build, browser E2E và remote Cloudflare/Resend vẫn chưa xác minh được trong sandbox này.
 
-## First-time Setup — production bootstrap
-
-- `/#login` calls `GET /api/v1/setup`; on a fresh database it automatically routes to `/#setup`.
-- Setup form uses the same Login design system and requires: full name, email, password, password confirmation, and `SETUP_SECRET`.
-- `SETUP_SECRET` is read only from the server-side Cloudflare environment; its value is never returned by an API or embedded in frontend/source config.
-- Backend only permits setup when both the immutable initialization marker is absent and no `system_admin` (Root Admin) role assignment exists.
-- Password hashing uses PBKDF2-SHA-256 at exactly 100,000 iterations for current runtime compatibility.
-- Successful setup creates the first user, assigns `system_admin`, writes audit action `first_time_setup`, queues the welcome email, and permanently disables bootstrap.
-- Direct `/#setup` after initialization automatically returns to Login. If Root Admin is removed outside the supported workflow, bootstrap remains locked and requires controlled incident recovery rather than reopening an account-takeover path.
+**Kết luận:** không tự gắn nhãn `PRODUCTION READY` trong báo cáo này cho đến khi các mục NOT VERIFIED bắt buộc phía production được chạy và PASS trên CI/Cloudflare thực tế.

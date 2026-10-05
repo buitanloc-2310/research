@@ -68,6 +68,21 @@ export async function seo(request, env, requestApi) {
   let noindex = false;
   let ogImage = url.origin + "/sky-first-logo.png";
 
+  // Global SEO stays CMS-managed. Use the compatibility settings endpoint so SSR does
+  // not need the heavier navigation/footer payload just to render metadata.
+  try {
+    const settingsResponse = await requestApi("/api/v1/public/settings");
+    if (settingsResponse.ok) {
+      const global = (await settingsResponse.json()).settings || {};
+      title = global.global_seo_title || title;
+      description = global.global_seo_description || global.description || description;
+      const social = global.default_social_media_id || global.logo_media_id;
+      if (social) ogImage = url.origin + "/api/v1/public/media/" + encodeURIComponent(social);
+    }
+  } catch {
+    // Metadata falls back to static defaults; application errors are still surfaced by the page/API.
+  }
+
   if (url.pathname.startsWith("/record/")) {
     const r = await requestApi("/api/v1/public/records/" + url.pathname.split("/")[2]);
     if (!r.ok)

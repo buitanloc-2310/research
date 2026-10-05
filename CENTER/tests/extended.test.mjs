@@ -309,3 +309,27 @@ test("validation: task assignee must belong to project", async () => {
   );
   assert.equal(x.status, 400);
 });
+
+test("first-time setup: server misconfiguration does not consume attempts and brute force returns Retry-After", async () => {
+  const fresh = database();
+  const baseEnv = { ...env, DB: fresh.DB };
+  const invoke = async (ev, secret) => fetchHandler(
+    new Request(env.APP_ORIGIN + "/api/v1/setup", {
+      method: "POST",
+      headers: { origin: env.APP_ORIGIN, "x-requested-with": "SFRC" },
+      body: JSON.stringify({ secret, email: "rate@example.test", name: "Rate Test", password: "ValidPassword123!", confirm_password: "ValidPassword123!" }),
+    }),
+    ev,
+  );
+
+  for (let i = 0; i < 12; i++) assert.equal((await invoke(baseEnv, "anything")).status, 503);
+  assert.equal(fresh.sqlite.prepare("SELECT COUNT(*) n FROM rate_limits WHERE key LIKE 'setup:%'").get().n, 0, "missing SETUP_SECRET must not consume setup attempts");
+
+  const protectedEnv = { ...baseEnv, SETUP_SECRET: uuid() };
+  for (let i = 0; i < 10; i++) assert.equal((await invoke(protectedEnv, "wrong")).status, 403);
+  const limited = await invoke(protectedEnv, "wrong");
+  assert.equal(limited.status, 429);
+  assert.match(limited.headers.get("retry-after") || "", /^\d+$/);
+  const body = await limited.json();
+  assert.match(body.error || "", /thử lại sau/i);
+});

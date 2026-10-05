@@ -114,3 +114,21 @@ Admin (session + CSRF/origin + quyền `settings`; publish cần thêm quyền `
 - `GET|PATCH|DELETE /api/v1/admin/cms/media/:id`
 
 CMS writes are persisted to D1. Media bytes are stored in R2; D1 stores only metadata/reference. Public settings/media endpoints are intentionally allowlisted and never return application secrets.
+
+## Research Cloud V3 CMS additions
+
+Admin routes below keep the same authenticated session, same-origin/CSRF protections and `settings` permission boundary. Publish still additionally requires `publish`.
+
+- `GET /api/v1/admin/cms/overview` — bounded CMS counts, recent CMS audit events and recently changed pages.
+- `GET /api/v1/admin/cms/pages?q=&status=&page=&limit=` — bounded page list; `limit` max 100.
+- `POST /api/v1/admin/cms/pages/:id/duplicate` — creates a new Draft/noindex copy and copies blocks; never auto-publishes.
+- `GET /api/v1/admin/cms/pages/:id/revisions` — latest 50 revision metadata rows.
+- `GET /api/v1/admin/cms/pages/:id/revisions/:revisionId` — read one revision snapshot.
+- `POST /api/v1/admin/cms/pages/:id/restore` — body `{ "revision_id": "..." }`; restores that revision into Draft while preserving the current Published snapshot.
+- `POST /api/v1/admin/cms/blocks/:id/duplicate` — duplicates a block into the same Draft page.
+- Navigation payloads accept/return `parent_id`; only two levels are allowed.
+- `GET /api/v1/admin/cms/media?q=&type=image|pdf&page=&limit=` — server-side media filtering/pagination; `limit` max 60.
+- `GET /api/v1/admin/cms/media/:id/references` — returns CMS references used by safe-delete UI.
+- Media metadata includes `width`, `height`, `description` and `updated_at` when available.
+
+First-time Setup 429 responses may include `Retry-After`; server misconfiguration (`SETUP_SECRET` missing) and already-initialized states are checked before consuming a setup attempt.

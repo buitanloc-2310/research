@@ -67,8 +67,13 @@ async function rate(env, key, max = 15, seconds = 900) {
     n,
     n + seconds,
   );
-  const r = await one(env, "SELECT count FROM rate_limits WHERE key=?", key);
-  if (r.count > max) fail(429, "Quá nhiều yêu cầu. Vui lòng thử lại sau.");
+  const r = await one(env, "SELECT count,expires FROM rate_limits WHERE key=?", key);
+  if (r.count > max) {
+    const retry = Math.max(1, Number(r.expires || n + seconds) - n);
+    fail(429, `Quá nhiều yêu cầu. Vui lòng thử lại sau ${Math.ceil(retry / 60)} phút.`, {
+      "retry-after": String(retry),
+    });
+  }
 }
 export async function session(req, env) {
   const raw = (req.headers.get("cookie") || "")
@@ -258,11 +263,14 @@ export async function api(req, env) {
     return json({ required: state.required });
   }
   if (p === "/api/setup" && method === "POST") {
-    await rate(env, "setup:" + ip, 5);
     const state = await firstTimeSetupState(env);
     if (!state.required) fail(409, "Hệ thống đã được khởi tạo.");
     if (!env.SETUP_SECRET)
       fail(503, "First-time Setup chưa được cấu hình trên máy chủ.");
+    // Setup is intentionally rate-limited, but server misconfiguration and already-initialized
+    // states do not consume attempts. This prevents an operator from locking themselves out
+    // while still protecting the secret from brute-force attempts.
+    await rate(env, "setup:" + ip, 10);
     const b = await body(req);
     if (!equal(b.secret, env.SETUP_SECRET)) fail(403, "SETUP_SECRET không đúng.");
     if (b.password !== b.confirm_password)

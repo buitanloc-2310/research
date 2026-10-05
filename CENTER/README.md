@@ -3,7 +3,7 @@
 **SKY FIRST RESEARCH & INNOVATION CENTER**  
 Production: `https://research.skyfirst.io.vn`
 
-Source production cho một Cloudflare Pages project gồm public website, login/workspace, Admin, Website CMS, Pages Functions/API, D1 và private R2. Bản này tiếp tục trực tiếp trên kiến trúc có sẵn; không chuyển framework, không tạo database/bucket mới và không chứa secret production.
+Source production cho một Cloudflare Pages project gồm public website, login/workspace, Admin, Cloud CMS Studio, Pages Functions/API, D1 và private R2. Bản này tiếp tục trực tiếp trên kiến trúc có sẵn; không chuyển framework, không tạo database/bucket mới và không chứa secret production.
 
 ## 1. Production bindings cố định
 
@@ -26,17 +26,17 @@ Không thay D1/R2 ở trên. Không đưa bất kỳ D1 ID đã nghỉ hưu nào
 
 - `public/`: website, workspace/admin UI, design system, logo chính thức, manifest, headers/routes.
 - `functions/`: Cloudflare Pages Functions adapter.
-- `src/`: API, auth/session/RBAC, security, business workflows, email, SEO và Website CMS.
-- `migrations/`: migration D1 tuần tự `0001` → `0004`.
+- `src/`: API, auth/session/RBAC, security, business workflows, email, SEO và Cloud CMS Studio.
+- `migrations/`: migration D1 tuần tự `0001` → `0006`.
 - `tests/`: automated tests và browser/Pages harness.
 - `scripts/`: local runtime, seed, build/config helpers.
 - `FINAL_ACCEPTANCE.md`: báo cáo nghiệm thu của vòng Production Final này.
 
 ZIP bàn giao phải có đúng một top-level folder `CENTER/`. Không deploy `node_modules`, `.git`, `.local`, `.build` hoặc secret file.
 
-## 3. Website CMS
+## 3. Cloud CMS Studio
 
-Admin có mục **Website CMS**. Dữ liệu được lưu ở D1, media thực ở R2 `STORAGE`; không dùng localStorage/base64 làm nguồn dữ liệu.
+Admin có mục **Cloud CMS Studio**. Dữ liệu được lưu ở D1, media thực ở R2 `STORAGE`; không dùng localStorage/base64 làm nguồn dữ liệu.
 
 CMS quản lý được:
 
@@ -46,7 +46,10 @@ CMS quản lý được:
 - Pages: tạo/sửa trang, SEO title, meta description, social image, canonical, noindex.
 - Page Builder: Hero, Heading, Rich Text, Image, CTA, Statistics, Cards, Feature Grid, Partners/Links, FAQ; tạo/sửa/xóa/bật/tắt/reorder.
 - Draft → Preview → Publish bằng published snapshot. Draft tiếp theo không tự rò ra public.
-- Media Library: upload/browse/search/preview/reuse/alt text/delete có kiểm tra tham chiếu. Media được private mặc định và chỉ public qua API khi được dùng cho nội dung public.
+- Revision History: snapshot trước thay đổi, tối đa 50 revision/page, restore chỉ về Draft.
+- Duplicate page/block, drag/drop reorder + keyboard/button fallback, Desktop/Tablet/Mobile preview.
+- Navigation tối đa 2 cấp với public dropdown/mobile stack.
+- Media Cloud: R2 upload, server-side search/filter/pagination, dimensions/ALT/description/reference inspection và safe-delete. Media private mặc định và chỉ public qua API khi policy cho phép.
 
 Các module nghiệp vụ Research/Publications/Datasets/Researchers/Research Groups/Events và RBAC hiện hữu vẫn độc lập với content layer của CMS.
 
@@ -95,9 +98,11 @@ Migration:
 1. `0001_initial.sql`: schema nghiệp vụ/auth/RBAC/session/audit/settings.
 2. `0002_email_delivery.sql`: email delivery/outbox fields.
 3. `0003_email_reliability.sql`: retry/idempotency/lease.
-4. `0004_website_cms.sql`: additive Website CMS, resilient `settings`, site settings, pages/blocks/nav/footer/media và default content. Dùng `CREATE TABLE IF NOT EXISTS` + `INSERT OR IGNORE`, không drop/reset business data.
+4. `0004_website_cms.sql`: additive CMS nền tảng, resilient `settings`, site settings, pages/blocks/nav/footer/media và default content.
+5. `0005_public_experience.sql`: starter public experience an toàn, chỉ cập nhật untouched Draft và không auto-publish.
+6. `0006_research_cloud_v3.sql`: revisions, nested navigation, media metadata/dimensions, global SEO và performance indexes; additive, không drop/reset business data.
 
-Nếu migration history remote khớp 0001–0003, áp migration còn thiếu:
+Nếu migration history remote khớp các migration đã triển khai (đặc biệt 0001–0005), chỉ áp migration còn thiếu:
 
 ```sh
 npm run migrate:production
@@ -127,13 +132,13 @@ Email production thật cần domain/sender được Resend xác minh. Không c�
 
 1. Backup D1 remote.
 2. Kiểm tra `wrangler d1 migrations list tt --remote` và schema thực.
-3. Áp **chỉ migration còn thiếu**, trong đó `0004_website_cms.sql` là migration mới của bản này.
+3. Áp **chỉ migration còn thiếu**, trong đó migration mới nhất của bản này là `0006_research_cloud_v3.sql`.
 4. Xác nhận bindings `DB→tt` đúng ID và `STORAGE→ttrungtam`.
 5. Cấu hình variables/secrets Production.
 6. Trong CI/máy có network: `npm ci && npm test && npm run build`.
 7. Deploy Pages project hiện có; output `public`, `functions` cùng cấp `package.json`.
 8. Smoke test `/api/v1/health`, `/api/v1/public/settings`, `/api/v1/public/site`, `/`, `/about`, `/explore`, `/contact`, login.
-9. Đăng nhập Admin → Website CMS → sửa draft → preview → publish → refresh public.
+9. Đăng nhập Admin → Cloud CMS Studio → sửa Draft → preview → publish → refresh public → thử revision restore về Draft.
 10. Test upload R2 và gửi email thật bằng tài khoản/provider production do bạn kiểm soát.
 
 Nếu repo chứa thư mục `CENTER` ở root, đặt Pages Root directory = `CENTER`; nếu nội dung của `CENTER` được đưa trực tiếp lên repo root thì để Root directory trống.

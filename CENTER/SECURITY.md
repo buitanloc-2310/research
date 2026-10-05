@@ -53,3 +53,11 @@ CSP keeps `default-src 'self'` and narrowly permits Cloudflare Analytics at `sta
 ## First-time Setup hardening
 
 `GET /api/v1/setup` chỉ trả boolean `required`; không bao giờ trả `SETUP_SECRET`. Setup chỉ mở khi chưa có marker `initialized` **và** chưa có bất kỳ `system_admin` nào. `POST /api/v1/setup` rate-limit theo IP, yêu cầu same-origin + `X-Requested-With`, xác thực Cloudflare `SETUP_SECRET`, bắt buộc password confirmation, PBKDF2-SHA-256 100.000 iterations, tạo duy nhất Root Admin và ghi audit `first_time_setup`. Một hệ thống đã từng khởi tạo không tự mở bootstrap trở lại nếu Root Admin bị xóa ngoài quy trình; đây là chủ đích chống account takeover và cần incident recovery có kiểm soát.
+
+## Research Cloud V3 hardening
+
+CMS revisions are D1 snapshots scoped to a page and retained to the newest 50 rows per page. Restoring a revision edits the Draft only; it never mutates a Published snapshot until an authorized user performs Publish. Duplicate pages are always created as Draft + noindex.
+
+Navigation nesting is validated server-side and limited to two levels. Media delete checks Site Settings, default social media and CMS page references before removing the R2 object. Admin media browsing is bounded by server-side `LIMIT`; private/admin responses are not given public shared-cache headers.
+
+First-time Setup keeps brute-force protection at 10 attempts per 15-minute window per IP in the current runtime. Missing `SETUP_SECRET` and already-initialized states are evaluated before rate consumption. A real rate-limit rejection is HTTP 429 and carries `Retry-After`; this improves operator recovery without disabling brute-force protection.

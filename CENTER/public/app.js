@@ -31,7 +31,10 @@ let me = null,
   page = 1,
   mode = "list",
   lastFocus = null,
-  publicSite = null;
+  publicSite = null,
+  cmsMediaQuery = "",
+  cmsMediaType = "all",
+  cmsMediaPage = 1;
 const badge = (s) =>
   `<span class="badge ${esc(s)}">${esc(STATUS[s] || s)}</span>`;
 const date = (v) =>
@@ -85,11 +88,18 @@ function toast(s, error = false) {
   $("#toasts").append(n);
   setTimeout(() => n.remove(), 5500);
 }
-function close() {
-  dialog.close();
+function resetDialog() {
   dialog.innerHTML = "";
-  lastFocus?.focus();
+  dialog.classList.remove("studio", "page-builder-dialog", "preview-dialog");
+  lastFocus?.focus?.();
 }
+function close() {
+  if (dialog.open) dialog.close();
+  resetDialog();
+}
+dialog.addEventListener("close", () => {
+  if (dialog.innerHTML) resetDialog();
+});
 function modal(title, html) {
   lastFocus = document.activeElement;
   dialog.innerHTML = `<div class="dialog-head"><h2>${esc(title)}</h2><button class="icon" data-close aria-label="Đóng">×</button></div>${html}`;
@@ -137,7 +147,7 @@ function chrome(content, active = "dashboard") {
       ? [
           ["roles", "Vai trò & quyền"],
           ["settings", "Cài đặt hệ thống"],
-          ["website", "Website CMS"],
+          ["website", "Cloud CMS Studio"],
           ["email", "Email outbox"],
           ["export", "Xuất dữ liệu"],
         ]
@@ -145,7 +155,28 @@ function chrome(content, active = "dashboard") {
     ...(has("audit") ? [["audit", "Audit log"]] : []),
     ...(has("manage") ? [["notices", "Gửi thông báo"]] : []),
   ];
-  return `<div class="workspace"><aside id="sidebar"><a class="brand" href="/"><img src="/sky-first-logo.png" alt=""><span>SKY FIRST<small>RESEARCH & INNOVATION CENTER</small></span></a><div class="nav-label">KHÔNG GIAN NGHIÊN CỨU</div><nav>${links.map(([id, label, icon]) => `<a href="#w/${id}" class="${active === id ? "selected" : ""}"><span>${icon}</span>${esc(label)}</a>`).join("")}</nav>${admin.length ? `<div class="nav-label">ADMIN CONTROL CENTER</div><nav>${admin.map(([id, label]) => `<a href="#w/${id}" class="${active === id ? "selected" : ""}"><span>⌘</span>${label}</a>`).join("")}</nav>` : ""}<div class="sidebar-foot">Hỏi sâu hơn.<br>Tạo thay đổi tốt hơn.</div></aside><div class="work-main"><header class="work-top"><button class="icon" id="menu" aria-label="Mở menu" aria-expanded="false">☰</button><form id="globalSearch"><input name="q" placeholder="Tìm đề tài, tài liệu, nghiên cứu…" aria-label="Tìm toàn hệ thống"></form><button class="icon theme" aria-label="Đổi giao diện sáng tối">◐</button><a href="#w/notifications" class="icon" aria-label="Thông báo">♧</a><button id="logout" class="quiet">Đăng xuất</button><span class="avatar" title="${esc(me?.name)}">${esc(me?.name?.slice(0, 1) || "S")}</span></header><main id="main" tabindex="-1">${content}</main><footer>SKY FIRST · Research & Innovation Center Workspace</footer></div></div>`;
+  const commands = [...links.map(([id,label,icon]) => ({id,label,icon:icon||"→",group:"Workspace"})), ...admin.map(([id,label]) => ({id,label,icon:"⌘",group:"Admin"}))];
+  return `<div class="workspace"><aside id="sidebar"><a class="brand" href="/"><img src="/sky-first-logo.png" alt=""><span>SKY FIRST<small>RESEARCH & INNOVATION CENTER</small></span></a><div class="nav-label">KHÔNG GIAN NGHIÊN CỨU</div><nav>${links.map(([id, label, icon]) => `<a href="#w/${id}" class="${active === id ? "selected" : ""}"><span>${icon}</span>${esc(label)}</a>`).join("")}</nav>${admin.length ? `<div class="nav-label">ADMIN CONTROL CENTER</div><nav>${admin.map(([id, label]) => `<a href="#w/${id}" class="${active === id ? "selected" : ""}"><span>⌘</span>${label}</a>`).join("")}</nav>` : ""}<div class="sidebar-foot">Hỏi sâu hơn.<br>Tạo thay đổi tốt hơn.</div></aside><div class="work-main"><header class="work-top"><button class="icon" id="menu" aria-label="Mở menu" aria-expanded="false">☰</button><form id="globalSearch"><span class="search-glyph" aria-hidden="true">⌕</span><input name="q" placeholder="Tìm đề tài, tài liệu, nghiên cứu…" aria-label="Tìm toàn hệ thống"><kbd>/</kbd></form><button id="commandOpen" class="command-open" type="button" aria-label="Mở lệnh nhanh"><span>⌘</span><b>Lệnh nhanh</b><kbd>⌘K</kbd></button><button class="icon theme" aria-label="Đổi giao diện sáng tối">◐</button><a href="#w/notifications" class="icon" aria-label="Thông báo">◉</a><button id="logout" class="quiet">Đăng xuất</button><span class="avatar" title="${esc(me?.name)}">${esc(me?.name?.slice(0, 1) || "S")}</span></header><main id="main" tabindex="-1">${content}</main><footer>SKY FIRST · Research & Innovation Center Workspace</footer></div><div id="commandPalette" class="command-palette" hidden><button class="command-backdrop" data-command-close aria-label="Đóng bảng lệnh"></button><section class="command-card" role="dialog" aria-modal="true" aria-labelledby="commandTitle"><div class="command-search"><span aria-hidden="true">⌕</span><input id="commandInput" autocomplete="off" placeholder="Đi đến trang hoặc chức năng…" aria-label="Tìm lệnh"><kbd>ESC</kbd></div><div class="command-title" id="commandTitle">ĐIỀU HƯỚNG NHANH</div><div id="commandResults">${commands.map(c=>`<button type="button" class="command-item" data-command="${esc(c.id)}" data-search="${esc((c.label+' '+c.group).toLowerCase())}"><span>${esc(c.icon)}</span><div><b>${esc(c.label)}</b><small>${esc(c.group)}</small></div><i>↗</i></button>`).join("")}</div></section></div></div>`;
+}
+function openCommandPalette() {
+  const palette = $("#commandPalette");
+  if (!palette) return;
+  lastFocus = document.activeElement;
+  palette.hidden = false;
+  document.body.classList.add("palette-open");
+  const input = $("#commandInput");
+  if (input) {
+    input.value = "";
+    $$(".command-item").forEach((x) => (x.hidden = false));
+    requestAnimationFrame(() => input.focus());
+  }
+}
+function closeCommandPalette() {
+  const palette = $("#commandPalette");
+  if (!palette || palette.hidden) return;
+  palette.hidden = true;
+  document.body.classList.remove("palette-open");
+  lastFocus?.focus?.();
 }
 function bindChrome() {
   const menu = $("#menu");
@@ -181,6 +212,18 @@ function bindChrome() {
       e.preventDefault();
       nav("w/search/" + encodeURIComponent(new FormData(e.target).get("q")));
     };
+  if ($("#commandOpen")) $("#commandOpen").onclick = openCommandPalette;
+  $$('[data-command-close]').forEach((b) => (b.onclick = closeCommandPalette));
+  $$('[data-command]').forEach((b) => (b.onclick = () => {
+    closeCommandPalette();
+    nav("w/" + b.dataset.command);
+  }));
+  if ($("#commandInput")) $("#commandInput").oninput = (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    $$(".command-item").forEach((item) => {
+      item.hidden = q && !item.dataset.search.includes(q);
+    });
+  };
   $$(".theme").forEach(
     (b) =>
       (b.onclick = () => {
@@ -192,7 +235,9 @@ function bindChrome() {
               ? "dark"
               : "light",
           );
-        } catch {}
+        } catch (error) {
+          void error; // Theme persistence is optional when storage is unavailable.
+        }
       }),
   );
 }
@@ -229,6 +274,18 @@ function currentNav(url) {
     return kind ? new URLSearchParams(location.search).get("kind") === kind : !u.search;
   } catch { return false; }
 }
+function renderPublicNavigation(navs = []) {
+  const roots = navs.filter((x) => !x.parent_id && x.url !== "/");
+  return roots.map((item) => {
+    const children = navs.filter((x) => x.parent_id === item.id);
+    const active = currentNav(item.url) || children.some((x) => currentNav(x.url));
+    const attrs = `${item.new_tab ? ' target="_blank" rel="noopener noreferrer"' : ""}`;
+    if (!children.length)
+      return `<a href="${esc(item.url)}" class="${active ? "active" : ""}" ${active ? 'aria-current="page"' : ""}${attrs}>${esc(item.label)}</a>`;
+    return `<div class="public-nav-group ${active ? "active" : ""}"><a href="${esc(item.url)}"${attrs}>${esc(item.label)} <span aria-hidden="true">⌄</span></a><div class="public-subnav">${children.map((child) => `<a href="${esc(child.url)}" class="${currentNav(child.url) ? "active" : ""}" ${child.new_tab ? 'target="_blank" rel="noopener noreferrer"' : ""}>${esc(child.label)}<span aria-hidden="true">↗</span></a>`).join("")}</div></div>`;
+  }).join("");
+}
+
 function footerDefaults(st = {}) {
   return [
     { id:"f-center-about", column_key:"center", heading:"Trung tâm", label:"Giới thiệu", url:"/about", position:0 },
@@ -273,7 +330,7 @@ function publicShell(content, site = publicSite) {
   const nameEn = st.english_name || "SKY FIRST RESEARCH & INNOVATION CENTER";
   const email = st.email || "research@skyfirst.io.vn";
   const hotline = st.hotline || "0924 910 210";
-  return `<header class="public-top"><a class="brand public-brand" href="/" aria-label="${esc(nameVi)}"><img src="${esc(logo)}" alt="Logo Trung tâm"><span><b>SKY FIRST</b><small>RESEARCH & INNOVATION CENTER</small></span></a><nav id="publicNav" class="public-nav" aria-label="Điều hướng chính">${navs.filter(x=>x.url!=="/").map(x=>`<a href="${esc(x.url)}" class="${currentNav(x.url)?"active":""}" ${currentNav(x.url)?'aria-current="page"':''} ${x.new_tab?'target="_blank" rel="noopener noreferrer"':''}>${esc(x.label)}</a>`).join("")}<a class="mobile-only" href="/#${me ? "w/dashboard" : "login"}">${me ? "Không gian làm việc" : "Đăng nhập"}</a></nav><div class="public-actions"><a class="header-search" href="/explore" aria-label="Tìm kiếm nội dung">⌕</a><a class="button header-login" href="/#${me ? "w/dashboard" : "login"}">${me ? "Không gian làm việc" : "Đăng nhập"} <span aria-hidden="true">↗</span></a><button class="icon theme" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện">◐</button><button class="icon public-menu" aria-label="Mở menu website" aria-controls="publicNav" aria-expanded="false">☰</button></div></header><main id="main" tabindex="-1">${content}</main><footer class="public-footer premium"><section class="footer-brand"><img src="${esc(logo)}" alt=""><div><h2>${esc(nameVi)}</h2><p>${esc(st.description || "Nghiên cứu, đổi mới sáng tạo, tri thức và tác động cộng đồng.")}</p><div class="footer-contact"><a href="mailto:${esc(email)}"><span>✉</span>${esc(email)}</a><a href="tel:${esc(hotline.replace(/\D/g,""))}"><span>⌕</span>${esc(hotline)}</a></div></div></section>${columns.map(c=>{const items=footer.filter(x=>x.column_key===c);return `<section class="footer-column footer-${esc(c)}"><h3>${esc(items[0]?.heading||c)}</h3>${items.map(x=>`<a href="${esc(x.url)}" ${/^https?:/i.test(x.url)?'target="_blank" rel="noopener noreferrer"':''}><span>${esc(x.label)}</span><b aria-hidden="true">${/^https?:/i.test(x.url)?"↗":"›"}</b></a>`).join("")}</section>`}).join("")}<div class="footer-bottom"><span>${esc(st.copyright || "© 2026 Trung tâm Nghiên cứu Đổi mới & Sáng tạo Sky First.")}</span><nav aria-label="Liên kết cuối trang"><a href="/privacy">Chính sách bảo mật</a><a href="/contact">Liên hệ</a><a href="${esc(st.website || "https://research.skyfirst.io.vn")}" target="_blank" rel="noopener noreferrer">Website Trung tâm</a></nav></div><div class="footer-signature" aria-hidden="true">${esc(nameEn)}</div></footer>`;
+  return `<header class="public-top"><a class="brand public-brand" href="/" aria-label="${esc(nameVi)}"><img src="${esc(logo)}" alt="Logo Trung tâm"><span><b>SKY FIRST</b><small>RESEARCH & INNOVATION CENTER</small></span></a><nav id="publicNav" class="public-nav" aria-label="Điều hướng chính">${renderPublicNavigation(navs)}<a class="mobile-only" href="/#${me ? "w/dashboard" : "login"}">${me ? "Không gian làm việc" : "Đăng nhập"}</a></nav><div class="public-actions"><a class="header-search" href="/explore" aria-label="Tìm kiếm nội dung">⌕</a><a class="button header-login" href="/#${me ? "w/dashboard" : "login"}">${me ? "Không gian làm việc" : "Đăng nhập"} <span aria-hidden="true">↗</span></a><button class="icon theme" aria-label="Đổi giao diện sáng tối" title="Đổi giao diện">◐</button><button class="icon public-menu" aria-label="Mở menu website" aria-controls="publicNav" aria-expanded="false">☰</button></div></header><main id="main" tabindex="-1">${content}</main><footer class="public-footer premium"><section class="footer-brand"><img src="${esc(logo)}" alt=""><div><h2>${esc(nameVi)}</h2><p>${esc(st.description || "Nghiên cứu, đổi mới sáng tạo, tri thức và tác động cộng đồng.")}</p><div class="footer-contact"><a href="mailto:${esc(email)}"><span>✉</span>${esc(email)}</a><a href="tel:${esc(hotline.replace(/\D/g,""))}"><span>⌕</span>${esc(hotline)}</a></div></div></section>${columns.map(c=>{const items=footer.filter(x=>x.column_key===c);return `<section class="footer-column footer-${esc(c)}"><h3>${esc(items[0]?.heading||c)}</h3>${items.map(x=>`<a href="${esc(x.url)}" ${/^https?:/i.test(x.url)?'target="_blank" rel="noopener noreferrer"':''}><span>${esc(x.label)}</span><b aria-hidden="true">${/^https?:/i.test(x.url)?"↗":"›"}</b></a>`).join("")}</section>`}).join("")}<div class="footer-bottom"><span>${esc(st.copyright || "© 2026 Trung tâm Nghiên cứu Đổi mới & Sáng tạo Sky First.")}</span><nav aria-label="Liên kết cuối trang"><a href="/privacy">Chính sách bảo mật</a><a href="/contact">Liên hệ</a><a href="${esc(st.website || "https://research.skyfirst.io.vn")}" target="_blank" rel="noopener noreferrer">Website Trung tâm</a></nav></div><div class="footer-signature" aria-hidden="true">${esc(nameEn)}</div></footer>`;
 }
 function renderCmsBlock(block) {
   if (!block?.enabled) return "";
@@ -1022,96 +1079,258 @@ async function detail(id) {
     };
 }
 
-const BLOCK_LABELS = {hero:"Hero",heading:"Heading",rich_text:"Rich Text",image:"Image",cta:"CTA",statistics:"Statistics",cards:"Cards",feature_grid:"Feature Grid",partners:"Partners / Links",faq:"FAQ"};
+const BLOCK_LABELS = {
+  hero:"Hero", heading:"Heading", rich_text:"Rich Text", image:"Image", cta:"CTA",
+  statistics:"Statistics", cards:"Cards", feature_grid:"Feature Grid",
+  partners:"Partners / Links", faq:"FAQ",
+};
+const CMS_ACTION_LABELS = {
+  cms_site_settings:"Site Settings",
+  cms_page_create:"Tạo trang",
+  cms_page_update:"Sửa trang",
+  cms_page_publish:"Publish",
+  cms_page_duplicate:"Nhân bản trang",
+  cms_page_delete:"Xóa trang",
+  cms_block_create:"Thêm block",
+  cms_block_update:"Sửa block",
+  cms_block_delete:"Xóa block",
+  cms_block_duplicate:"Nhân bản block",
+  cms_blocks_reorder:"Sắp xếp block",
+  cms_revision_restore:"Khôi phục revision",
+  cms_nav_create:"Thêm menu",
+  cms_nav_update:"Sửa menu",
+  cms_nav_delete:"Xóa menu",
+  cms_footer_create:"Thêm footer",
+  cms_footer_update:"Sửa footer",
+  cms_footer_delete:"Xóa footer",
+  cms_media_upload:"Upload media",
+  cms_media_update:"Sửa media",
+  cms_media_delete:"Xóa media",
+};
 function mediaOptions(items, selected="") {
-  return `<option value="">— Không chọn —</option>${items.filter(x=>x.mime.startsWith("image/")).map(x=>`<option value="${x.id}" ${x.id===selected?"selected":""}>${esc(x.name)}</option>`).join("")}`;
+  const images = items.filter(x=>x.mime.startsWith("image/"));
+  const retained = selected && !images.some(x=>x.id===selected)
+    ? `<option value="${esc(selected)}" selected>Đang chọn · ${esc(selected)}</option>`
+    : "";
+  return `<option value="">— Không chọn —</option>${retained}${images.map(x=>`<option value="${x.id}" ${x.id===selected?"selected":""}>${esc(x.name)}</option>`).join("")}`;
 }
 function listLines(items=[], type="cards") {
-  return items.map(x => type==="statistics" ? `${x.value||""} | ${x.label||""}` : `${x.title||x.question||""} | ${x.text||x.answer||""} | ${x.url||""}`).join("\n");
+  return items.map(x => type==="statistics"
+    ? `${x.value||""} | ${x.label||""}`
+    : `${x.title||x.question||""} | ${x.text||x.answer||""} | ${x.url||""} | ${x.media_id||""}`).join("\n");
 }
 function parseListLines(value, type) {
   return String(value||"").split("\n").map(x=>x.trim()).filter(Boolean).map(line=>{
-    const [a="",b="",c=""] = line.split("|").map(x=>x.trim());
-    return type==="statistics" ? {value:a,label:b} : {title:a,text:b,url:c};
+    const [a="",b="",c="",d=""] = line.split("|").map(x=>x.trim());
+    if(type==="statistics") return {value:a,label:b};
+    const out={title:a,text:b};
+    if(c) out.url=c;
+    if(d) out.media_id=d;
+    return out;
   });
 }
 function blockEditorFields(block, media) {
   const d=block?.data||{}, type=block?.type||"hero";
   const commonMedia = `<label>Media<select name="media_id">${mediaOptions(media,d.media_id)}</select></label>`;
-  if(type==="hero") return `<label>Eyebrow<input name="eyebrow" value="${esc(d.eyebrow)}"></label><label>Tiêu đề<input name="title" value="${esc(d.title)}" required></label><label>Nội dung<textarea name="text">${esc(d.text)}</textarea></label><div class="form-grid"><label>Nút chính<input name="primaryLabel" value="${esc(d.primaryLabel)}"></label><label>URL nút chính<input name="primaryUrl" value="${esc(d.primaryUrl)}"></label><label>Nút phụ<input name="secondaryLabel" value="${esc(d.secondaryLabel)}"></label><label>URL nút phụ<input name="secondaryUrl" value="${esc(d.secondaryUrl)}"></label></div>`;
-  if(type==="heading") return `<label>Eyebrow<input name="eyebrow" value="${esc(d.eyebrow)}"></label><label>Tiêu đề<input name="title" value="${esc(d.title)}" required></label><label>Mô tả<textarea name="text">${esc(d.text)}</textarea></label>`;
-  if(type==="rich_text") return `<label>Tiêu đề<input name="heading" value="${esc(d.heading)}"></label><label>Nội dung<textarea name="text" rows="9">${esc(d.text)}</textarea></label>`;
-  if(type==="image") return `${commonMedia}<label>Alt text<input name="alt" value="${esc(d.alt)}"></label><label>Chú thích<input name="caption" value="${esc(d.caption)}"></label>`;
-  if(type==="cta") return `<label>Tiêu đề<input name="title" value="${esc(d.title)}" required></label><label>Mô tả<textarea name="text">${esc(d.text)}</textarea></label><div class="form-grid"><label>Nhãn nút<input name="label" value="${esc(d.label)}"></label><label>URL<input name="url" value="${esc(d.url)}"></label></div>`;
-  if(type==="statistics") return `<label>Tiêu đề<input name="heading" value="${esc(d.heading)}"></label><label>Dữ liệu — mỗi dòng: Giá trị | Nhãn<textarea name="items" rows="8">${esc(listLines(d.items,"statistics"))}</textarea></label>`;
-  if(["cards","feature_grid","partners","faq"].includes(type)) return `<label>Tiêu đề nhóm<input name="heading" value="${esc(d.heading)}"></label><label>${type==="faq"?"Mỗi dòng: Câu hỏi | Trả lời":"Mỗi dòng: Tiêu đề | Mô tả | URL"}<textarea name="items" rows="10">${esc(listLines(d.items,type))}</textarea></label>`;
+  if(type==="hero") return `<div class="form-grid"><label>Eyebrow<input name="eyebrow" value="${esc(d.eyebrow)}" maxlength="160"></label><label>Tiêu đề<input name="title" value="${esc(d.title)}" required maxlength="500"></label><label class="wide">Sapo<textarea name="text" rows="4">${esc(d.text)}</textarea></label><label>Nút chính<input name="primaryLabel" value="${esc(d.primaryLabel)}"></label><label>URL nút chính<input name="primaryUrl" value="${esc(d.primaryUrl)}"></label><label>Nút phụ<input name="secondaryLabel" value="${esc(d.secondaryLabel)}"></label><label>URL nút phụ<input name="secondaryUrl" value="${esc(d.secondaryUrl)}"></label></div>`;
+  if(type==="heading") return `<label>Eyebrow<input name="eyebrow" value="${esc(d.eyebrow)}"></label><label>Tiêu đề<input name="title" value="${esc(d.title)}" required></label><label>Mô tả<textarea name="text" rows="5">${esc(d.text)}</textarea></label>`;
+  if(type==="rich_text") return `<label>Tiêu đề<input name="heading" value="${esc(d.heading)}"></label><label>Nội dung<textarea name="text" rows="12">${esc(d.text)}</textarea><small>Văn bản được escape khi render public; không chèn HTML tùy ý.</small></label>`;
+  if(type==="image") return `${commonMedia}<label>Alt text<input name="alt" value="${esc(d.alt)}" maxlength="500"></label><label>Chú thích<textarea name="caption" rows="3">${esc(d.caption)}</textarea></label>`;
+  if(type==="cta") return `<label>Tiêu đề<input name="title" value="${esc(d.title)}" required></label><label>Mô tả<textarea name="text" rows="4">${esc(d.text)}</textarea></label><div class="form-grid"><label>Nhãn nút<input name="label" value="${esc(d.label)}"></label><label>URL<input name="url" value="${esc(d.url)}"></label></div>`;
+  if(type==="statistics") return `<label>Tiêu đề<input name="heading" value="${esc(d.heading)}"></label><label>Dữ liệu — mỗi dòng: Giá trị | Nhãn<textarea name="items" rows="10">${esc(listLines(d.items,"statistics"))}</textarea><small>Chỉ dùng số liệu có nguồn. Có thể để block tắt nếu chưa có dữ liệu xác thực.</small></label>`;
+  if(["cards","feature_grid","partners","faq"].includes(type)) return `<label>Tiêu đề nhóm<input name="heading" value="${esc(d.heading)}"></label><label>${type==="faq"?"Mỗi dòng: Câu hỏi | Trả lời":"Mỗi dòng: Tiêu đề | Mô tả | URL | Media ID (tuỳ chọn)"}<textarea name="items" rows="12">${esc(listLines(d.items,type))}</textarea><small>${type==="faq"?"Một câu hỏi trên mỗi dòng.":"Media ID có thể lấy trong Media Cloud; URL và Media ID được phép để trống."}</small></label>`;
   return "";
 }
 function blockDataFromForm(type, f) {
   const b=Object.fromEntries(new FormData(f));
   if(["statistics","cards","feature_grid","partners","faq"].includes(type)) b.items=parseListLines(b.items,type);
+  delete b.type; delete b.enabled;
   return b;
+}
+function builderPreview(page, revision=false) {
+  return `<div class="builder-preview-page ${revision?"revision-preview":""}">${renderCmsPage(page)}</div>`;
 }
 async function editCmsBlock(pageId, block, media) {
   const type=block?.type||"hero";
-  modal(block?`Sửa block · ${BLOCK_LABELS[type]}`:"Thêm block", `<form id="cmsBlockForm">${block?"":`<label>Loại block<select name="type">${Object.entries(BLOCK_LABELS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join("")}</select></label><div id="dynamicBlockFields"></div>`}${block?blockEditorFields(block,media):""}<label><input type="checkbox" name="enabled" ${block?.enabled!==false?"checked":""}> Hiển thị block</label><button class="button" type="submit">Lưu block</button></form>`);
+  modal(block?`Sửa block · ${BLOCK_LABELS[type]}`:"Thêm block", `<div class="block-editor-shell"><form id="cmsBlockForm" class="block-editor-form">${block?"":`<label>Loại block<select name="type">${Object.entries(BLOCK_LABELS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join("")}</select></label><div id="dynamicBlockFields"></div>`}${block?blockEditorFields(block,media):""}<label class="toggle-row"><input type="checkbox" name="enabled" ${block?.enabled!==false?"checked":""}> <span><b>Hiển thị block</b><small>Block tắt vẫn được lưu trong Draft nhưng không render.</small></span></label><div class="dialog-actions"><button type="button" id="backToBuilder">← Page Builder</button><button class="button" type="submit">Lưu vào Draft</button></div></form><aside class="block-editor-help"><span class="section-kicker">BLOCK</span><h3>${esc(BLOCK_LABELS[type])}</h3><p>Mỗi block là một đơn vị nội dung độc lập. Lưu block chỉ cập nhật Draft; website public chỉ thay đổi sau khi Publish trang.</p><div class="safe-note">Không có HTML tùy ý, không lưu media base64 và không bypass Published snapshot.</div></aside></div>`);
+  dialog.classList.add("studio");
   const form=$("#cmsBlockForm");
+  const back=()=>{close();openCmsPage(pageId)};
+  $("#backToBuilder").onclick=back;
+  dialog.querySelector("[data-close]").onclick=back;
   if(!block){
-    const draw=()=>$("#dynamicBlockFields").innerHTML=blockEditorFields({type:form.type.value,data:{}},media);
+    const draw=()=>{
+      $("#dynamicBlockFields").innerHTML=blockEditorFields({type:form.type.value,data:{}},media);
+      $(".block-editor-help h3").textContent=BLOCK_LABELS[form.type.value]||form.type.value;
+    };
     form.type.onchange=draw; draw();
   }
   form.onsubmit=async e=>{
     e.preventDefault();
+    const button=form.querySelector('[type="submit"]'); button.disabled=true;
     const type2=block?.type||form.type.value;
     try{
       const payload={page_id:pageId,type:type2,enabled:form.enabled.checked,data:blockDataFromForm(type2,form)};
       if(block) await send(`/admin/cms/blocks/${block.id}`,payload,"PATCH"); else await send("/admin/cms/blocks",payload);
-      close(); toast("Đã lưu block."); await openCmsPage(pageId);
-    }catch(err){toast(err.message,true)}
+      close(); toast("Đã lưu block vào Draft."); await openCmsPage(pageId);
+    }catch(err){toast(err.message,true);button.disabled=false}
   };
 }
 async function openCmsPage(id) {
-  const [d,m]=await Promise.all([api(`/admin/cms/pages/${id}`),api("/admin/cms/media")]);
+  const [d,m,revisions]=await Promise.all([
+    api(`/admin/cms/pages/${id}`),
+    api("/admin/cms/media?type=image&limit=60"),
+    api(`/admin/cms/pages/${id}/revisions`),
+  ]);
   const p=d.page;
-  modal(`Page Builder · /${p.slug==="home"?"":p.slug}`, `<div class="cms-builder"><form id="cmsPageForm" class="panel"><div class="form-grid"><label>Tiêu đề<input name="title" value="${esc(p.title)}" required></label><label>Slug<input name="slug" value="${esc(p.slug)}" required></label><label class="wide">Mô tả<textarea name="description">${esc(p.description)}</textarea></label><label>SEO title<input name="seo_title" value="${esc(p.seo_title)}"></label><label>Social image<select name="social_media_id">${mediaOptions(m.items,p.social_media_id)}</select></label><label class="wide">Meta description<textarea name="meta_description">${esc(p.meta_description)}</textarea></label><label class="wide">Canonical URL<input name="canonical_url" value="${esc(p.canonical_url)}" placeholder="https://research.skyfirst.io.vn/..."></label><label><input type="checkbox" name="noindex" ${p.noindex?"checked":""}> noindex</label></div><button class="button" type="submit">Save Draft · Thông tin trang</button></form><section class="panel"><div class="section-heading"><div><h3>Blocks</h3><p class="muted">Kéo logic bằng nút lên/xuống; Draft không xuất hiện public cho tới khi Publish.</p></div><button id="addCmsBlock" class="button">+ Thêm block</button></div><div class="cms-block-list">${p.blocks.map((b,i)=>`<div class="cms-block-row"><div><b>${esc(BLOCK_LABELS[b.type]||b.type)}</b><small>${b.enabled?"Đang bật":"Đang tắt"} · #${i+1}</small></div><div><button data-block-up="${b.id}" ${i===0?"disabled":""}>↑</button><button data-block-down="${b.id}" ${i===p.blocks.length-1?"disabled":""}>↓</button><button data-block-edit="${b.id}">Sửa</button><button data-block-delete="${b.id}" class="danger-lite">Xóa</button></div></div>`).join("")||empty("Chưa có block","Thêm block để xây dựng trang.")}</div></section><div class="cms-builder-actions"><button id="previewCmsPage">Preview Draft</button><button id="publishCmsPage" class="button">Publish</button>${!["home","about","contact","privacy"].includes(p.slug)?'<button id="deleteCmsPage" class="danger-lite">Xóa trang</button>':""}<span class="muted">Public snapshot: ${p.published_at?`đã publish · ${esc(p.published_at)}`:"chưa publish"}</span></div></div>`);
+  const published=!!d.published;
+  const statusLabel=published?(d.has_unpublished_changes?"Published · Có Draft mới":"Published"):"Draft";
+  modal(`Cloud Page Builder · /${p.slug==="home"?"":p.slug}`, `<div class="cms-builder-v3">
+    <header class="builder-toolbar">
+      <div class="builder-status"><span class="status-dot ${published?"live":"draft"}"></span><div><b>${esc(statusLabel)}</b><small>Version ${p.version}${p.published_at?` · Publish ${date(p.published_at)}`:""}</small></div></div>
+      <div class="device-switch" role="group" aria-label="Kích thước preview"><button class="active" data-device="desktop">Desktop</button><button data-device="tablet">Tablet</button><button data-device="mobile">Mobile</button></div>
+      <div class="builder-toolbar-actions"><button id="refreshCmsPreview">Preview Draft</button><button id="duplicateCmsPage">Nhân bản</button><button id="publishCmsPage" class="button">Publish</button></div>
+    </header>
+    <div class="builder-layout">
+      <aside class="builder-settings">
+        <div class="builder-panel-title"><span class="section-kicker">PAGE</span><h3>Thiết lập trang</h3></div>
+        <form id="cmsPageForm">
+          <label>Tiêu đề<input name="title" value="${esc(p.title)}" required></label>
+          <label>Slug<div class="slug-input"><span>/</span><input name="slug" value="${esc(p.slug)}" required></div></label>
+          <label>Mô tả<textarea name="description" rows="4">${esc(p.description)}</textarea></label>
+          <details class="editor-details" open><summary>SEO & chia sẻ</summary>
+            <label>SEO title<input name="seo_title" value="${esc(p.seo_title)}" maxlength="240"></label>
+            <label>Meta description<textarea name="meta_description" rows="4" maxlength="500">${esc(p.meta_description)}</textarea></label>
+            <label>Social image<select name="social_media_id">${mediaOptions(m.items,p.social_media_id)}</select></label>
+            <label>Canonical URL<input name="canonical_url" value="${esc(p.canonical_url)}" placeholder="https://research.skyfirst.io.vn/..."></label>
+            <label class="toggle-row compact"><input type="checkbox" name="noindex" ${p.noindex?"checked":""}> <span><b>noindex</b><small>Không cho công cụ tìm kiếm lập chỉ mục trang.</small></span></label>
+          </details>
+          <button class="button full" type="submit">Save Draft · Thông tin trang</button>
+        </form>
+        <div class="seo-preview"><span>SEARCH PREVIEW</span><b>${esc(p.seo_title||p.title)}</b><small>research.skyfirst.io.vn/${p.slug==="home"?"":esc(p.slug)}</small><p>${esc(p.meta_description||p.description||"Thêm meta description để kiểm soát phần mô tả tìm kiếm.")}</p></div>
+      </aside>
+      <section class="builder-stage">
+        <div class="builder-stage-bar"><span id="previewModeLabel">DRAFT PREVIEW</span><span>Nội dung chưa Publish không xuất hiện public.</span></div>
+        <div id="builderViewport" class="builder-viewport" data-device="desktop"><div id="builderCanvas" class="builder-canvas">${builderPreview(p)}</div></div>
+      </section>
+      <aside class="builder-outline">
+        <div class="builder-panel-title"><div><span class="section-kicker">BLOCKS</span><h3>Cấu trúc trang</h3></div><button id="addCmsBlock" class="button compact-button">+ Block</button></div>
+        <div id="cmsBlockList" class="cms-block-list v3">${p.blocks.map((b,i)=>`<div class="cms-block-row" draggable="true" data-drag-block="${b.id}"><button class="drag-handle" type="button" aria-label="Kéo block">⠿</button><div class="block-row-copy"><b>${esc(BLOCK_LABELS[b.type]||b.type)}</b><small>${b.enabled?"Đang bật":"Đang tắt"} · #${i+1}</small></div><div class="block-row-actions"><button data-block-up="${b.id}" aria-label="Đưa lên" ${i===0?"disabled":""}>↑</button><button data-block-down="${b.id}" aria-label="Đưa xuống" ${i===p.blocks.length-1?"disabled":""}>↓</button><button data-block-duplicate="${b.id}" aria-label="Nhân bản">⧉</button><button data-block-edit="${b.id}">Sửa</button><button data-block-delete="${b.id}" class="danger-lite">×</button></div></div>`).join("")||empty("Chưa có block","Thêm block để bắt đầu xây dựng trang.")}</div>
+        <details class="revision-panel" ${revisions.items.length?"":"open"}><summary>Revision History <span>${revisions.items.length}</span></summary><div class="revision-list">${revisions.items.map(r=>`<button type="button" data-revision="${r.id}"><b>r${r.revision_no} · ${esc((CMS_ACTION_LABELS[`cms_${r.kind}`]||r.kind).replaceAll("_"," "))}</b><small>${esc(r.actor_name||"Hệ thống")} · ${date(r.created_at)}</small></button>`).join("")||'<p class="muted small">Revision đầu tiên sẽ được tạo khi trang được chỉnh sửa.</p>'}</div></details>
+        <button id="restoreRevision" class="button secondary full" hidden>Khôi phục revision này về Draft</button>
+        ${!["home","about","contact","privacy"].includes(p.slug)?'<button id="deleteCmsPage" class="danger-lite full">Xóa trang tùy chỉnh</button>':""}
+      </aside>
+    </div>
+  </div>`);
+  dialog.classList.add("studio","page-builder-dialog");
+
+  const viewport=$("#builderViewport"), canvas=$("#builderCanvas"), modeLabel=$("#previewModeLabel");
+  $$('[data-device]').forEach(btn=>btn.onclick=()=>{
+    $$('[data-device]').forEach(x=>x.classList.toggle("active",x===btn));
+    viewport.dataset.device=btn.dataset.device;
+  });
   formSubmit("#cmsPageForm", async b=>{
-    await send(`/admin/cms/pages/${id}`,{...b,noindex:$("#cmsPageForm [name=noindex]").checked,version:p.version},"PATCH"); toast("Đã lưu draft."); close(); await openCmsPage(id);
+    await send(`/admin/cms/pages/${id}`,{...b,noindex:$("#cmsPageForm [name=noindex]").checked,version:p.version},"PATCH");
+    toast("Đã lưu thông tin trang vào Draft."); close(); await openCmsPage(id);
   });
   $("#addCmsBlock").onclick=()=>editCmsBlock(id,null,m.items);
   $$('[data-block-edit]').forEach(btn=>btn.onclick=()=>editCmsBlock(id,p.blocks.find(x=>x.id===btn.dataset.blockEdit),m.items));
-  $$('[data-block-delete]').forEach(btn=>btn.onclick=async()=>{if(!confirm("Xóa block này?"))return;try{await api(`/admin/cms/blocks/${btn.dataset.blockDelete}`,{method:"DELETE",headers:{"x-requested-with":"SFRC"}});close();await openCmsPage(id)}catch(e){toast(e.message,true)}});
+  $$('[data-block-duplicate]').forEach(btn=>btn.onclick=async()=>{try{await send(`/admin/cms/blocks/${btn.dataset.blockDuplicate}/duplicate`,{});toast("Đã nhân bản block.");close();await openCmsPage(id)}catch(e){toast(e.message,true)}});
+  $$('[data-block-delete]').forEach(btn=>btn.onclick=async()=>{if(!confirm("Xóa block này khỏi Draft? Revision trước đó vẫn được giữ."))return;try{await api(`/admin/cms/blocks/${btn.dataset.blockDelete}`,{method:"DELETE",headers:{"x-requested-with":"SFRC"}});close();await openCmsPage(id)}catch(e){toast(e.message,true)}});
   const reorder=async(bid,dir)=>{const ids=p.blocks.map(x=>x.id),i=ids.indexOf(bid),j=i+dir;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];await send(`/admin/cms/pages/${id}/reorder`,{ids});close();await openCmsPage(id)};
   $$('[data-block-up]').forEach(b=>b.onclick=()=>reorder(b.dataset.blockUp,-1));
   $$('[data-block-down]').forEach(b=>b.onclick=()=>reorder(b.dataset.blockDown,1));
-  $("#previewCmsPage").onclick=async()=>{try{const x=await api(`/admin/cms/pages/${id}/preview`);modal("Preview Draft",`<div class="cms-preview">${renderCmsPage(x.page)}</div>`)}catch(e){toast(e.message,true)}};
-  $("#publishCmsPage").onclick=async()=>{if(!confirm("Publish draft hiện tại ra website công khai?"))return;try{await send(`/admin/cms/pages/${id}/publish`,{});publicSite=null;toast("Đã publish trang.");close();await adminPage("website")}catch(e){toast(e.message,true)}};
-  const deletePage = $("#deleteCmsPage");
-  if(deletePage) deletePage.onclick=async()=>{if(!confirm("Xóa trang tùy chỉnh này? Thao tác không thể hoàn tác."))return;try{await api(`/admin/cms/pages/${id}`,{method:"DELETE",headers:{"x-requested-with":"SFRC"}});publicSite=null;close();toast("Đã xóa trang.");await adminPage("website")}catch(e){toast(e.message,true)}};
+
+  let dragged=null;
+  $$('[data-drag-block]').forEach(row=>{
+    row.addEventListener("dragstart",()=>{dragged=row.dataset.dragBlock;row.classList.add("dragging")});
+    row.addEventListener("dragend",()=>{row.classList.remove("dragging");dragged=null});
+    row.addEventListener("dragover",e=>{e.preventDefault();row.classList.add("drag-over")});
+    row.addEventListener("dragleave",()=>row.classList.remove("drag-over"));
+    row.addEventListener("drop",async e=>{e.preventDefault();row.classList.remove("drag-over");const target=row.dataset.dragBlock;if(!dragged||dragged===target)return;const ids=p.blocks.map(x=>x.id),from=ids.indexOf(dragged),to=ids.indexOf(target);ids.splice(to,0,ids.splice(from,1)[0]);try{await send(`/admin/cms/pages/${id}/reorder`,{ids});close();await openCmsPage(id)}catch(err){toast(err.message,true)}});
+  });
+
+  $("#refreshCmsPreview").onclick=async()=>{try{const x=await api(`/admin/cms/pages/${id}/preview`);canvas.innerHTML=builderPreview(x.page);modeLabel.textContent="DRAFT PREVIEW · REFRESHED";toast("Preview Draft đã được làm mới.")}catch(e){toast(e.message,true)}};
+  $("#publishCmsPage").onclick=async()=>{if(!confirm("Publish Draft hiện tại ra website công khai? Bản Published cũ chỉ được thay thế sau khi thao tác thành công."))return;try{await send(`/admin/cms/pages/${id}/publish`,{});publicSite=null;toast("Đã Publish trang.");close();await adminPage("website")}catch(e){toast(e.message,true)}};
+  $("#duplicateCmsPage").onclick=async()=>{if(!confirm("Tạo một bản sao Draft của trang này?"))return;try{const x=await send(`/admin/cms/pages/${id}/duplicate`,{});toast("Đã tạo bản sao Draft.");close();await openCmsPage(x.id)}catch(e){toast(e.message,true)}};
+
+  $$('[data-revision]').forEach(btn=>btn.onclick=async()=>{try{const x=await api(`/admin/cms/pages/${id}/revisions/${btn.dataset.revision}`);canvas.innerHTML=builderPreview(x.revision.snapshot,true);modeLabel.textContent=`REVISION r${x.revision.revision_no} · READ ONLY`;const restore=$("#restoreRevision");restore.hidden=false;restore.dataset.revisionId=x.revision.id;restore.scrollIntoView({block:"nearest"})}catch(e){toast(e.message,true)}});
+  $("#restoreRevision").onclick=async e=>{const rid=e.currentTarget.dataset.revisionId;if(!rid)return;if(!confirm("Khôi phục revision này về Draft? Website public vẫn giữ bản Published hiện tại cho tới khi bạn Publish lại."))return;try{await send(`/admin/cms/pages/${id}/restore`,{revision_id:rid});toast("Đã khôi phục revision về Draft.");close();await openCmsPage(id)}catch(err){toast(err.message,true)}};
+  const deletePage=$("#deleteCmsPage");
+  if(deletePage) deletePage.onclick=async()=>{if(!confirm("Xóa trang tùy chỉnh này? Revision và blocks của trang cũng sẽ bị xóa."))return;try{await api(`/admin/cms/pages/${id}`,{method:"DELETE",headers:{"x-requested-with":"SFRC"}});publicSite=null;close();toast("Đã xóa trang.");await adminPage("website")}catch(e){toast(e.message,true)}};
+}
+function cmsPageState(page){
+  if(page.status!=="published") return '<span class="badge draft">Draft</span>';
+  if(page.has_unpublished_changes) return '<span class="badge review">Published + Draft</span>';
+  return '<span class="badge published">Published</span>';
+}
+function navParentOptions(items,item){
+  return `<option value="">— Cấp chính —</option>${items.filter(x=>x.id!==item?.id&&!x.parent_id).map(x=>`<option value="${x.id}" ${item?.parent_id===x.id?"selected":""}>${esc(x.label)}</option>`).join("")}`;
+}
+async function uploadCmsMedia(file){
+  if(!file) return;
+  const label=$("#mediaUploadState");
+  if(label) label.textContent=`Đang tải ${file.name}…`;
+  try{
+    const r=await fetch(`/api/v1/admin/cms/media?name=${encodeURIComponent(file.name)}`,{method:"POST",credentials:"same-origin",headers:{"x-requested-with":"SFRC"},body:file});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw Error((d.error||"Upload lỗi")+(d.request_id?` · Mã yêu cầu: ${d.request_id}`:""));
+    toast("Đã upload media lên R2."); cmsMediaPage=1; await websiteCmsPage();
+  }catch(err){toast(err.message,true);if(label)label.textContent="Upload thất bại — kiểm tra định dạng và thử lại."}
 }
 async function websiteCmsPage() {
-  const [site,pages,nav,footer,media]=await Promise.all([api("/admin/cms/site"),api("/admin/cms/pages"),api("/admin/cms/navigation"),api("/admin/cms/footer"),api("/admin/cms/media")]);
-  const st=site.settings;
-  const html=heading("Website CMS","Quản trị nội dung, nhận diện, menu, footer, trang và Media Library mà không cần mở source code.")+
-  `<div class="cms-admin-grid"><section class="panel"><div class="section-heading"><h2>Site Settings</h2><span class="badge published">Global</span></div><form id="cmsSiteForm" class="form-grid"><label class="wide">Tên Trung tâm<input name="center_name" value="${esc(st.center_name)}"></label><label class="wide">English name<input name="english_name" value="${esc(st.english_name)}"></label><label class="wide">Tagline<input name="tagline" value="${esc(st.tagline)}"></label><label class="wide">Description<textarea name="description">${esc(st.description)}</textarea></label><label>Logo<select name="logo_media_id">${mediaOptions(media.items,st.logo_media_id)}</select></label><label>Favicon<select name="favicon_media_id">${mediaOptions(media.items,st.favicon_media_id)}</select></label><label>Website<input name="website" value="${esc(st.website)}"></label><label>Hotline/Zalo<input name="hotline" value="${esc(st.hotline)}"></label><label>Email Trung tâm<input name="email" value="${esc(st.email)}"></label><label>Email hỗ trợ<input name="support_email" value="${esc(st.support_email)}"></label><label>Facebook<input name="facebook" value="${esc(st.facebook)}"></label><label>Facebook Group<input name="facebook_group" value="${esc(st.facebook_group)}"></label><label class="wide">Copyright<input name="copyright" value="${esc(st.copyright)}"></label><button class="button" type="submit">Lưu Site Settings</button></form></section>
-  <section class="panel"><div class="section-heading"><div><h2>Pages</h2><p class="muted">Draft → Preview → Publish.</p></div><button id="newCmsPage">+ Trang</button></div><div class="cms-page-list">${pages.items.map(x=>`<button class="cms-page-card" data-cms-page="${x.id}"><span><b>${esc(x.title)}</b><small>/${x.slug==="home"?"":esc(x.slug)}</small></span><span class="badge ${x.status}">${x.status==="published"?"Published":"Draft"}</span></button>`).join("")}</div></section>
-  <section class="panel"><div class="section-heading"><h2>Header / Navigation</h2><button id="addNav">+ Link</button></div><div class="cms-simple-list">${nav.items.map(x=>`<div><span><b>${esc(x.label)}</b><small>${esc(x.url)} · ${x.enabled?"Bật":"Tắt"}</small></span><span><button data-nav-edit="${x.id}">Sửa</button><button data-nav-delete="${x.id}">Xóa</button></span></div>`).join("")}</div></section>
-  <section class="panel"><div class="section-heading"><h2>Footer</h2><button id="addFooter">+ Link</button></div><div class="cms-simple-list">${footer.items.map(x=>`<div><span><b>${esc(x.heading)} · ${esc(x.label)}</b><small>${esc(x.url)} · ${x.enabled?"Bật":"Tắt"}</small></span><span><button data-footer-edit="${x.id}">Sửa</button><button data-footer-delete="${x.id}">Xóa</button></span></div>`).join("")}</div></section>
-  <section class="panel cms-media-panel"><div class="section-heading"><div><h2>Media Library</h2><p class="muted">R2 binding STORAGE · không lưu base64 vào D1.</p></div><label class="button file-button">Upload<input id="cmsMediaUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label></div><div class="media-tools"><input id="mediaSearch" placeholder="Tìm media…"><select id="mediaTypeFilter" aria-label="Lọc loại media"><option value="all">Tất cả</option><option value="image">Hình ảnh</option><option value="pdf">PDF</option></select></div><div class="media-grid">${media.items.map(x=>`<article class="media-item" data-media-type="${x.mime.startsWith("image/")?"image":"pdf"}">${x.mime.startsWith("image/")?`<img src="${mediaSrc(x.id,true)}" alt="${esc(x.alt_text)}">`:'<div class="media-doc">PDF</div>'}<b>${esc(x.name)}</b><small>${(x.size/1024).toFixed(1)} KB · ${esc(x.visibility)}${x.alt_text?` · ALT: ${esc(x.alt_text)}`:""}</small><div class="media-actions"><button data-media-edit="${x.id}">Metadata</button><button data-media-delete="${x.id}">Xóa</button></div></article>`).join("")||empty("Chưa có media","Upload logo, ảnh social hoặc hình dùng cho Page Builder.")}</div></section></div>`;
+  const typeParam=cmsMediaType==="all"?"":`&type=${encodeURIComponent(cmsMediaType)}`;
+  const mediaPath=`/admin/cms/media?q=${encodeURIComponent(cmsMediaQuery)}&page=${cmsMediaPage}&limit=24${typeParam}`;
+  const [overview,site,pages,nav,footer,media]=await Promise.all([
+    api("/admin/cms/overview"),api("/admin/cms/site"),api("/admin/cms/pages"),api("/admin/cms/navigation"),api("/admin/cms/footer"),api(mediaPath),
+  ]);
+  const st=site.settings,c=overview.counts||{};
+  const html=`<div class="cms-studio-head">${heading("Cloud CMS Studio","Quản trị website, nội dung, SEO và media trên Cloudflare — không cần mở source code.",'<button id="newCmsPage" class="button">+ Tạo trang</button>')}<div class="cms-health"><span><i></i>D1 CMS</span><span><i></i>R2 Media</span><span><i></i>Draft / Published</span></div></div>
+  <div class="cms-kpis"><button data-cms-scroll="pages"><span>Pages</span><b>${c.pages||0}</b><small>${c.changed||0} trang có Draft mới</small></button><button data-cms-scroll="pages"><span>Published</span><b>${c.published||0}</b><small>${c.drafts||0} trang chưa publish</small></button><button data-cms-scroll="media"><span>Media Cloud</span><b>${c.media||0}</b><small>${c.images||0} hình ảnh</small></button><button data-cms-scroll="navigation"><span>Navigation</span><b>${c.navigation||0}</b><small>${c.footer||0} footer links</small></button></div>
+  <div class="cms-studio-dashboard">
+    <section class="panel cms-pages-panel" id="cmsSection-pages"><div class="section-heading"><div><span class="section-kicker">CONTENT</span><h2>Pages</h2><p class="muted">Draft → Preview → Publish · revision được lưu tự động.</p></div></div><div class="cms-page-list v3">${pages.items.map(x=>`<article class="cms-page-card"><button class="cms-page-main" data-cms-page="${x.id}"><span class="page-icon">${x.slug==="home"?"⌂":"□"}</span><span><b>${esc(x.title)}</b><small>/${x.slug==="home"?"":esc(x.slug)} · cập nhật ${date(x.updated_at)}</small></span></button><div class="cms-page-actions">${cmsPageState(x)}<button data-cms-page-duplicate="${x.id}" title="Nhân bản">⧉</button><button data-cms-page="${x.id}">Mở Builder →</button></div></article>`).join("")}</div></section>
+    <aside class="panel cms-activity"><div class="section-heading"><div><span class="section-kicker">ACTIVITY</span><h2>Gần đây</h2></div></div><div class="cms-activity-list">${overview.recent.map(x=>`<div><span class="activity-dot"></span><div><b>${esc(CMS_ACTION_LABELS[x.action]||x.action)}</b><small>${esc(x.actor_name||"Hệ thống")} · ${date(x.created_at)}</small></div></div>`).join("")||'<p class="muted">Chưa có hoạt động CMS.</p>'}</div></aside>
+
+    <section class="panel cms-site-panel"><div class="section-heading"><div><span class="section-kicker">GLOBAL</span><h2>Site Identity & SEO</h2><p class="muted">Thông tin dùng xuyên suốt website, metadata và giao diện đăng nhập.</p></div><span class="badge published">Global</span></div><form id="cmsSiteForm" class="form-grid"><label class="wide">Tên Trung tâm<input name="center_name" value="${esc(st.center_name)}"></label><label class="wide">English name<input name="english_name" value="${esc(st.english_name)}"></label><label class="wide">Tagline<input name="tagline" value="${esc(st.tagline)}"></label><label class="wide">Description<textarea name="description" rows="4">${esc(st.description)}</textarea></label><label>Logo<select name="logo_media_id">${mediaOptions(media.items,st.logo_media_id)}</select></label><label>Favicon<select name="favicon_media_id">${mediaOptions(media.items,st.favicon_media_id)}</select></label><label>Website<input name="website" value="${esc(st.website)}"></label><label>Hotline/Zalo<input name="hotline" value="${esc(st.hotline)}"></label><label>Email Trung tâm<input name="email" value="${esc(st.email)}"></label><label>Email hỗ trợ<input name="support_email" value="${esc(st.support_email)}"></label><label>Facebook<input name="facebook" value="${esc(st.facebook)}"></label><label>Facebook Group<input name="facebook_group" value="${esc(st.facebook_group)}"></label><label class="wide">Copyright<input name="copyright" value="${esc(st.copyright)}"></label><label class="wide">Global SEO title<input name="global_seo_title" value="${esc(st.global_seo_title||"")}"></label><label class="wide">Global SEO description<textarea name="global_seo_description" rows="3">${esc(st.global_seo_description||"")}</textarea></label><label>Default share image<select name="default_social_media_id">${mediaOptions(media.items,st.default_social_media_id)}</select></label><label>Theme color<input name="theme_color" value="${esc(st.theme_color||"#0759A6")}" pattern="#[0-9A-Fa-f]{6}"></label><div class="wide"><button class="button" type="submit">Lưu Site Settings</button></div></form></section>
+
+    <section class="panel" id="cmsSection-navigation"><div class="section-heading"><div><span class="section-kicker">STRUCTURE</span><h2>Header / Navigation</h2><p class="muted">Tối đa hai cấp; menu con tự hiển thị thành dropdown.</p></div><button id="addNav">+ Link</button></div><div class="cms-simple-list v3">${nav.items.map((x,i)=>`<div><span class="sort-grip">⋮⋮</span><span class="list-copy"><b>${x.parent_id?"↳ ":""}${esc(x.label)}</b><small>${esc(x.url)} · ${x.enabled?"Bật":"Tắt"}${x.new_tab?" · tab mới":""}</small></span><span class="list-actions"><button data-nav-up="${x.id}" ${i===0?"disabled":""}>↑</button><button data-nav-down="${x.id}" ${i===nav.items.length-1?"disabled":""}>↓</button><button data-nav-edit="${x.id}">Sửa</button><button data-nav-delete="${x.id}" class="danger-lite">×</button></span></div>`).join("")}</div></section>
+
+    <section class="panel"><div class="section-heading"><div><span class="section-kicker">FOOTER</span><h2>Footer Builder</h2><p class="muted">Brand / Trung tâm / Khám phá / Hệ sinh thái / Kết nối.</p></div><button id="addFooter">+ Link</button></div><div class="cms-simple-list v3">${footer.items.map((x,i)=>`<div><span class="sort-grip">⋮⋮</span><span class="list-copy"><b>${esc(x.heading)} · ${esc(x.label)}</b><small>${esc(x.url)} · ${x.enabled?"Bật":"Tắt"}</small></span><span class="list-actions"><button data-footer-up="${x.id}" ${i===0?"disabled":""}>↑</button><button data-footer-down="${x.id}" ${i===footer.items.length-1?"disabled":""}>↓</button><button data-footer-edit="${x.id}">Sửa</button><button data-footer-delete="${x.id}" class="danger-lite">×</button></span></div>`).join("")}</div></section>
+
+    <section class="panel cms-media-panel wide-dashboard" id="cmsSection-media"><div class="section-heading"><div><span class="section-kicker">R2 STORAGE</span><h2>Media Cloud</h2><p class="muted">Tìm kiếm server-side, metadata, tái sử dụng và safe-delete.</p></div><label class="button file-button">Upload<input id="cmsMediaUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label></div><label id="mediaDropzone" class="media-dropzone"><input id="cmsMediaDrop" type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden><span>⇧</span><div><b>Thả file vào đây</b><small>PNG, JPG, WEBP, GIF hoặc PDF · tối đa 10 MB</small></div><i id="mediaUploadState">R2 / STORAGE</i></label><form id="cmsMediaSearchForm" class="media-tools"><div class="search-field"><span>⌕</span><input name="q" value="${esc(cmsMediaQuery)}" placeholder="Tìm theo tên, ALT hoặc mô tả…"></div><select name="type"><option value="all" ${cmsMediaType==="all"?"selected":""}>Tất cả</option><option value="image" ${cmsMediaType==="image"?"selected":""}>Hình ảnh</option><option value="pdf" ${cmsMediaType==="pdf"?"selected":""}>PDF</option></select><button>Tìm</button></form><div class="media-grid v3">${media.items.map(x=>`<article class="media-item" data-media-type="${x.mime.startsWith("image/")?"image":"pdf"}">${x.mime.startsWith("image/")?`<div class="media-thumb"><img src="${mediaSrc(x.id,true)}" alt="${esc(x.alt_text)}" loading="lazy"></div>`:'<div class="media-doc">PDF</div>'}<div class="media-copy"><b>${esc(x.name)}</b><small>${(x.size/1024).toFixed(1)} KB${x.width&&x.height?` · ${x.width}×${x.height}`:""}</small><small>${x.alt_text?`ALT: ${esc(x.alt_text)}`:"Chưa có ALT"} · ${esc(x.visibility)}</small></div><div class="media-actions"><button data-media-copy="${x.id}">Copy ID</button><button data-media-refs="${x.id}">Đang dùng?</button><button data-media-edit="${x.id}">Metadata</button><button data-media-delete="${x.id}" class="danger-lite">Xóa</button></div></article>`).join("")||empty("Chưa có media","Upload logo, ảnh social hoặc media dùng cho Page Builder.")}</div><div class="pagination cms-pagination">${media.page>1?'<button id="mediaPrev">← Trước</button>':""}<span>${media.total} media · Trang ${media.page}</span>${media.page*media.limit<media.total?'<button id="mediaNext">Tiếp →</button>':""}</div></section>
+  </div>`;
   app.innerHTML=chrome(html,"website"); bindChrome();
-  formSubmit("#cmsSiteForm",async b=>{await send("/admin/cms/site",b,"PATCH");publicSite=null;toast("Đã lưu Site Settings.")});
+
+  $$('[data-cms-scroll]').forEach(b=>b.onclick=()=>document.getElementById(`cmsSection-${b.dataset.cmsScroll}`)?.scrollIntoView({behavior:"smooth",block:"start"}));
+  formSubmit("#cmsSiteForm",async b=>{await send("/admin/cms/site",b,"PATCH");publicSite=null;toast("Đã lưu Site Settings.");await websiteCmsPage()});
   $$('[data-cms-page]').forEach(b=>b.onclick=()=>openCmsPage(b.dataset.cmsPage));
-  $("#newCmsPage").onclick=()=>{modal("Tạo trang",`<form id="newPageForm"><label>Tiêu đề<input name="title" required></label><label>Slug<input name="slug" placeholder="research-highlights" required></label><label>Mô tả<textarea name="description"></textarea></label><button class="button" type="submit">Tạo trang</button></form>`);formSubmit("#newPageForm",async b=>{const x=await send("/admin/cms/pages",b);close();await openCmsPage(x.id)})};
-  const editLink=(kind,item)=>{const isNav=kind==="navigation";modal(isNav?"Sửa menu":"Sửa footer",`<form id="cmsLinkForm"><label>${isNav?"Nhãn":"Cột"}<input name="${isNav?"label":"column_key"}" value="${esc(isNav?item?.label:item?.column_key)}" required></label>${!isNav?`<label>Heading<input name="heading" value="${esc(item?.heading)}" required></label><label>Nhãn<input name="label" value="${esc(item?.label)}" required></label>`:""}<label>URL<input name="url" value="${esc(item?.url)}" required></label><label>Thứ tự<input name="position" type="number" value="${item?.position??0}"></label><label><input type="checkbox" name="enabled" ${item?.enabled!==0?"checked":""}> Bật</label>${isNav?`<label><input type="checkbox" name="external" ${item?.external?"checked":""}> External</label><label><input type="checkbox" name="new_tab" ${item?.new_tab?"checked":""}> Mở tab mới</label>`:""}<button class="button" type="submit">Lưu</button></form>`);$("#cmsLinkForm").onsubmit=async e=>{e.preventDefault();const f=e.target,b=Object.fromEntries(new FormData(f));b.enabled=f.enabled.checked;if(isNav){b.external=f.external.checked;b.new_tab=f.new_tab.checked}if(item)b.id=item.id;try{await send(`/admin/cms/${kind}`,b,item?"PATCH":"POST");close();publicSite=null;await adminPage("website")}catch(err){toast(err.message,true)}}};
+  $$('[data-cms-page-duplicate]').forEach(b=>b.onclick=async()=>{if(!confirm("Tạo bản sao Draft của trang này?"))return;try{const x=await send(`/admin/cms/pages/${b.dataset.cmsPageDuplicate}/duplicate`,{});toast("Đã nhân bản trang.");await openCmsPage(x.id)}catch(e){toast(e.message,true)}});
+  $("#newCmsPage").onclick=()=>{modal("Tạo trang",`<form id="newPageForm"><label>Tiêu đề<input name="title" required></label><label>Slug<input name="slug" placeholder="research-highlights" required></label><label>Mô tả<textarea name="description"></textarea></label><div class="safe-note">Trang mới luôn bắt đầu ở Draft và noindex cho tới khi bạn kiểm tra SEO rồi Publish.</div><button class="button" type="submit">Tạo Draft</button></form>`);formSubmit("#newPageForm",async b=>{const x=await send("/admin/cms/pages",b);close();await openCmsPage(x.id)})};
+
+  const editLink=(kind,item)=>{const isNav=kind==="navigation";modal(isNav?"Sửa menu":"Sửa footer",`<form id="cmsLinkForm"><label>${isNav?"Nhãn":"Cột"}<input name="${isNav?"label":"column_key"}" value="${esc(isNav?item?.label:item?.column_key)}" required></label>${isNav?`<label>Menu cha<select name="parent_id">${navParentOptions(nav.items,item)}</select></label>`:`<label>Heading<input name="heading" value="${esc(item?.heading)}" required></label><label>Nhãn<input name="label" value="${esc(item?.label)}" required></label>`}<label>URL<input name="url" value="${esc(item?.url)}" required></label><label>Thứ tự<input name="position" type="number" value="${item?.position??0}"></label><label class="toggle-row compact"><input type="checkbox" name="enabled" ${item?.enabled!==0?"checked":""}> <span><b>Bật</b><small>Ẩn mục mà không xóa dữ liệu.</small></span></label>${isNav?`<label class="toggle-row compact"><input type="checkbox" name="external" ${item?.external?"checked":""}> <span><b>External</b></span></label><label class="toggle-row compact"><input type="checkbox" name="new_tab" ${item?.new_tab?"checked":""}> <span><b>Mở tab mới</b></span></label>`:""}<button class="button" type="submit">Lưu</button></form>`);$("#cmsLinkForm").onsubmit=async e=>{e.preventDefault();const f=e.target,b=Object.fromEntries(new FormData(f));b.enabled=f.enabled.checked;if(isNav){b.external=f.external.checked;b.new_tab=f.new_tab.checked}if(item)b.id=item.id;try{await send(`/admin/cms/${kind}`,b,item?"PATCH":"POST");close();publicSite=null;await websiteCmsPage()}catch(err){toast(err.message,true)}}};
   $("#addNav").onclick=()=>editLink("navigation",null); $("#addFooter").onclick=()=>editLink("footer",null);
   $$('[data-nav-edit]').forEach(b=>b.onclick=()=>editLink("navigation",nav.items.find(x=>x.id===b.dataset.navEdit)));
   $$('[data-footer-edit]').forEach(b=>b.onclick=()=>editLink("footer",footer.items.find(x=>x.id===b.dataset.footerEdit)));
-  const del=async(kind,id)=>{if(!confirm("Xóa mục này?"))return;await api(`/admin/cms/${kind}`,{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});publicSite=null;await adminPage("website")};
+  const del=async(kind,id)=>{if(!confirm("Xóa mục này?"))return;try{await api(`/admin/cms/${kind}`,{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});publicSite=null;await websiteCmsPage()}catch(e){toast(e.message,true)}};
   $$('[data-nav-delete]').forEach(b=>b.onclick=()=>del("navigation",b.dataset.navDelete)); $$('[data-footer-delete]').forEach(b=>b.onclick=()=>del("footer",b.dataset.footerDelete));
-  $("#cmsMediaUpload").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const r=await fetch(`/api/v1/admin/cms/media?name=${encodeURIComponent(file.name)}`,{method:"POST",credentials:"same-origin",headers:{"x-requested-with":"SFRC"},body:file});const d=await r.json();if(!r.ok)throw Error(d.error||"Upload lỗi");toast("Đã upload media.");await adminPage("website")}catch(err){toast(err.message,true)}};
-  $$('[data-media-edit]').forEach(b=>b.onclick=()=>{const item=media.items.find(x=>x.id===b.dataset.mediaEdit);modal("Media metadata",`<form id="mediaMetaForm"><p><b>${esc(item.name)}</b><br><small>${esc(item.mime)} · ${(item.size/1024).toFixed(1)} KB · ${esc(item.visibility)}</small></p><label>Alt text<input name="alt_text" value="${esc(item.alt_text)}" maxlength="300"></label><button class="button" type="submit">Lưu metadata</button></form>`);formSubmit("#mediaMetaForm",async body=>{await send(`/admin/cms/media/${item.id}`,body,"PATCH");close();await adminPage("website")})});
-  $$('[data-media-delete]').forEach(b=>b.onclick=async()=>{if(!confirm("Xóa media này? Hệ thống sẽ chặn nếu đang được sử dụng."))return;try{await api(`/admin/cms/media/${b.dataset.mediaDelete}`,{method:"DELETE",headers:{"x-requested-with":"SFRC"}});await adminPage("website")}catch(e){toast(e.message,true)}});
-  const applyMediaFilter=()=>{const q=$("#mediaSearch").value.toLowerCase(),type=$("#mediaTypeFilter").value;$$('.media-item').forEach(x=>x.hidden=!x.textContent.toLowerCase().includes(q)||(type!=="all"&&x.dataset.mediaType!==type))};
-  $("#mediaSearch").oninput=applyMediaFilter; $("#mediaTypeFilter").onchange=applyMediaFilter;
+
+  const reorderSimple=async(kind,items,id,dir)=>{const item=items.find(x=>x.id===id);if(!item)return;const siblings=items.filter(x=>kind==="navigation"?String(x.parent_id||"")===String(item.parent_id||""):x.column_key===item.column_key).sort((a,b)=>a.position-b.position);const i=siblings.findIndex(x=>x.id===id),j=i+dir;if(j<0||j>=siblings.length)return;const other=siblings[j],p1=item.position,p2=other.position;const clean=x=>kind==="navigation"?{id:x.id,label:x.label,url:x.url,position:x.position,enabled:!!x.enabled,external:!!x.external,new_tab:!!x.new_tab,parent_id:x.parent_id||""}:{id:x.id,column_key:x.column_key,heading:x.heading,label:x.label,url:x.url,position:x.position,enabled:!!x.enabled};try{await send(`/admin/cms/${kind}`,{...clean(item),position:p2},"PATCH");await send(`/admin/cms/${kind}`,{...clean(other),position:p1},"PATCH");publicSite=null;await websiteCmsPage()}catch(e){toast(e.message,true)}};
+  $$('[data-nav-up]').forEach(b=>b.onclick=()=>reorderSimple("navigation",nav.items,b.dataset.navUp,-1)); $$('[data-nav-down]').forEach(b=>b.onclick=()=>reorderSimple("navigation",nav.items,b.dataset.navDown,1));
+  $$('[data-footer-up]').forEach(b=>b.onclick=()=>reorderSimple("footer",footer.items,b.dataset.footerUp,-1)); $$('[data-footer-down]').forEach(b=>b.onclick=()=>reorderSimple("footer",footer.items,b.dataset.footerDown,1));
+
+  $("#cmsMediaUpload").onchange=e=>uploadCmsMedia(e.target.files[0]);
+  $("#cmsMediaDrop").onchange=e=>uploadCmsMedia(e.target.files[0]);
+  const drop=$("#mediaDropzone");
+  ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add("dragover")}));
+  ["dragleave","drop"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove("dragover")}));
+  drop.addEventListener("drop",e=>uploadCmsMedia(e.dataTransfer?.files?.[0]));
+  $("#cmsMediaSearchForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);cmsMediaQuery=String(f.get("q")||"");cmsMediaType=String(f.get("type")||"all");cmsMediaPage=1;websiteCmsPage()};
+  if($("#mediaPrev")) $("#mediaPrev").onclick=()=>{cmsMediaPage--;websiteCmsPage()};
+  if($("#mediaNext")) $("#mediaNext").onclick=()=>{cmsMediaPage++;websiteCmsPage()};
+  $$('[data-media-copy]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.mediaCopy);toast("Đã copy Media ID.")}catch{toast("Không thể truy cập clipboard.",true)}});
+  $$('[data-media-refs]').forEach(b=>b.onclick=async()=>{try{const x=await api(`/admin/cms/media/${b.dataset.mediaRefs}/references`);modal("Media references",x.items.length?`<div class="reference-list">${x.items.map(r=>`<div><b>${esc(r.type)}</b><span>${esc(r.label)}</span></div>`).join("")}</div>`:'<div class="safe-note">Media này chưa được tham chiếu bởi Site Settings, Page Builder hoặc Published snapshot.</div>')}catch(e){toast(e.message,true)}});
+  $$('[data-media-edit]').forEach(b=>b.onclick=()=>{const item=media.items.find(x=>x.id===b.dataset.mediaEdit);modal("Media metadata",`<form id="mediaMetaForm"><div class="media-meta-head">${item.mime.startsWith("image/")?`<img src="${mediaSrc(item.id,true)}" alt="">`:'<div class="media-doc">PDF</div>'}<div><b>${esc(item.name)}</b><small>${esc(item.mime)} · ${(item.size/1024).toFixed(1)} KB${item.width&&item.height?` · ${item.width}×${item.height}`:""}</small></div></div><label>Alt text<input name="alt_text" value="${esc(item.alt_text)}" maxlength="300"><small>Mô tả nội dung hình cho accessibility; không nhồi từ khóa SEO.</small></label><label>Mô tả nội bộ<textarea name="description" rows="4" maxlength="2000">${esc(item.description||"")}</textarea></label><button class="button" type="submit">Lưu metadata</button></form>`);formSubmit("#mediaMetaForm",async body=>{await send(`/admin/cms/media/${item.id}`,body,"PATCH");close();await websiteCmsPage()})});
+  $$('[data-media-delete]').forEach(b=>b.onclick=async()=>{if(!confirm("Xóa media này khỏi R2? Hệ thống sẽ từ chối nếu media đang được tham chiếu."))return;try{await api(`/admin/cms/media/${b.dataset.mediaDelete}`,{method:"DELETE",headers:{"x-requested-with":"SFRC"}});toast("Đã xóa media.");await websiteCmsPage()}catch(e){toast(e.message,true)}});
 }
 async function adminPage(view) {
   let html = "";
@@ -1515,7 +1734,9 @@ try {
     "dark",
     localStorage.getItem("theme") === "dark",
   );
-} catch {}
+} catch (error) {
+  void error; // Private browsing/storage policies may disable localStorage.
+}
 window.addEventListener("hashchange", () => {
   page = 1;
   route();
@@ -1534,6 +1755,28 @@ dialog.addEventListener("cancel", (e) => {
   else dirty = false;
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") $("#sidebar")?.classList.remove("open");
+  const target = e.target;
+  const editing = target && ["INPUT","TEXTAREA","SELECT"].includes(target.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if ($("#commandPalette")?.hidden === false) closeCommandPalette(); else openCommandPalette();
+    return;
+  }
+  if (e.key === "/" && !editing && $("#globalSearch input")) {
+    e.preventDefault();
+    $("#globalSearch input").focus();
+    return;
+  }
+  if (e.key === "Escape") {
+    closeCommandPalette();
+    $("#sidebar")?.classList.remove("open");
+  }
+  if (e.key === "Tab" && $("#commandPalette")?.hidden === false) {
+    const focusable = $$("#commandPalette .command-card input, #commandPalette .command-card button:not([hidden]):not(:disabled)").filter(x => x.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
 });
 route();
