@@ -135,6 +135,7 @@ function chrome(content, active = "dashboard") {
       ? [
           ["roles", "Vai trò & quyền"],
           ["settings", "Cài đặt"],
+          ["email", "Email outbox"],
           ["export", "Xuất dữ liệu"],
         ]
       : []),
@@ -522,9 +523,10 @@ async function recordForm(kind, r) {
   });
 }
 async function detail(id) {
+  const routeHash = "#w/detail/" + id;
+  if (location.hash !== routeHash) return;
   const d = await api("/records/" + id),
     r = d.item;
-  current = r;
   let children = [];
   if (r.kind === "projects") {
     let page = 1;
@@ -534,6 +536,10 @@ async function detail(id) {
       if (page++ * x.size >= x.total) break;
     }
   }
+  // A save can finish after the user has moved to another route.
+  // Do not let its delayed detail refresh overwrite the new screen.
+  if (location.hash !== routeHash) return;
+  current = r;
   const statusActions = Object.entries(ACTIONS)
     .map(([k, l]) => `<option value="${k}">${l}</option>`)
     .join("");
@@ -1043,6 +1049,14 @@ async function adminPage(view) {
     };
     return;
   }
+  if (view === "email") {
+    const d=await api("/admin/email");
+    app.innerHTML=chrome(heading("Email outbox",d.configured?"Resend đã cấu hình · sent = nhà cung cấp đã nhận, chưa xác nhận tới inbox.":"Chưa cấu hình RESEND_API_KEY.",'<button id="flushEmail">Xử lý hàng đợi</button>')+`<div class="panel table-wrap"><table><thead><tr><th>Email</th><th>Trạng thái</th><th>Lần thử</th><th>Lỗi / lịch thử lại</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${esc(x.subject)}</td><td>${esc(x.status)}${x.status==='failed'?` <button data-email-retry="${esc(x.id)}">Thử lại</button>`:''}</td><td>${x.attempts}</td><td>${esc(x.last_error||'—')}<small>${x.status==='pending'&&x.next_attempt_at?esc(new Date(x.next_attempt_at*1000).toLocaleString('vi-VN')):''}</small></td></tr>`).join('')}</tbody></table></div>`,view);
+    bindChrome();
+    $$("[data-email-retry]").forEach(b=>b.onclick=async()=>{if(!confirm("Thử gửi lại email sau khi đã sửa cấu hình?"))return;try{await send('/admin/email/retry',{id:b.dataset.emailRetry});await adminPage(view);}catch(e){toast(e.message,true);}});
+    $("#flushEmail").onclick=async()=>{try{await send('/admin/email/flush',{});await adminPage(view);}catch(e){toast(e.message,true);}};
+    return;
+  }
   if (view === "export") {
     const d = await api("/admin/export");
     html =
@@ -1224,7 +1238,7 @@ async function renderRoute() {
       return;
     }
     if (
-      ["users", "roles", "settings", "audit", "export", "notices"].includes(v)
+      ["users", "roles", "settings", "audit", "export", "notices", "email"].includes(v)
     ) {
       await adminPage(v);
       return;

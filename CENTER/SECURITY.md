@@ -32,7 +32,7 @@
 
 ## Giới hạn được công bố
 
-Không có antivirus nội dung tệp hoặc chống DDoS cấp ứng dụng chuyên dụng; dùng Cloudflare WAF/rate rules bổ sung khi cần. Thư mục upload không phải môi trường chạy file. Không có client-side encryption cho dataset; confidentiality dựa trên access control và private R2. Audit không thay thế log bên ngoài chống sửa bởi chủ tài khoản Cloudflare. Email adapter chưa có provider; notification in-app là kênh đang hoạt động. Không tích hợp SSO của hệ thống Member/TK cũ trong bản này. Phần mềm vẫn cần cập nhật bảo mật, theo dõi hạn mức và sao lưu khi vận hành lâu dài.
+Không có antivirus nội dung tệp hoặc chống DDoS cấp ứng dụng chuyên dụng; dùng Cloudflare WAF/rate rules bổ sung khi cần. Thư mục upload không phải môi trường chạy file. Không có client-side encryption cho dataset; confidentiality dựa trên access control và private R2. Audit không thay thế log bên ngoài chống sửa bởi chủ tài khoản Cloudflare. Email dùng Resend qua outbox D1, lease, idempotency và backoff; cần key/domain đã xác minh. Không có webhook bounce/delivery tracking: trạng thái sent chỉ xác nhận provider nhận yêu cầu. Không tích hợp SSO của hệ thống Member/TK cũ trong bản này. Phần mềm vẫn cần cập nhật bảo mật, theo dõi hạn mức và sao lưu khi vận hành lâu dài.
 
 ## Xoay khóa và khôi phục
 

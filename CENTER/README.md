@@ -1,222 +1,187 @@
-# SKY FIRST Research & Innovation Center
+# SKY FIRST — Trung tâm Nghiên cứu & Đổi mới Sáng tạo
 
-Ứng dụng quản lý nghiên cứu bằng tiếng Việt, gồm website công khai có HTML phục vụ SEO, Research Workspace và Admin Control Center. Chạy bằng Cloudflare Workers + D1 + R2; hỗ trợ Application Worker hoặc Pages ở tài khoản khác Data Worker.
+Bản hoàn thiện trực tiếp từ source `PAGES-EMAIL-LOGO-FIXED`, dành cho **một Cloudflare Pages project**: public website, workspace, admin, Pages Functions/API, D1 và private R2. Không cần tạo database/bucket mới. Logo chính thức giữ nguyên byte.
 
-## 1. Phạm vi sử dụng
+## 1. Cấu hình production đã chốt
 
-Có 23 nhóm hồ sơ: ý tưởng, đề tài/dự án, nhóm, task, milestone, nhật ký, tài liệu, dataset, hồ sơ researcher, ethics, hội đồng, nghiệm thu, công bố, kinh phí, sự kiện, contribution, impact, biểu mẫu, đối tác, hợp tác, tin/báo cáo, nội dung website và challenge. Mỗi hồ sơ có mã, chủ sở hữu, trạng thái, access level, phiên bản, tệp, thảo luận, lịch sử và quy trình xét duyệt. Các màn hình nhập liệu được sinh từ một catalog dùng chung với backend để giữ hợp đồng nhất quán.
+| Thành phần | Giá trị |
+|---|---|
+| Pages project | `research-xcl` (đối chiếu tên project hiện có trước CLI deploy) |
+| Domain / APP_ORIGIN | `https://research.skyfirst.io.vn` |
+| D1 binding | `DB` |
+| D1 database | `tt` |
+| D1 database ID | `ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1` |
+| R2 binding / bucket | `STORAGE` / `ttrungtam` |
+| Build command | `npm run build` |
+| Build output | `public` |
+| Node | 22.13+; khuyến nghị Node 24 |
 
-Research Journey có 15 bước, tiến độ, checklist, người phụ trách, hạn, ghi chú, tệp gắn theo bước và lịch sử. Danh sách hỗ trợ tìm kiếm, lọc trạng thái, phân trang, List/Board/Timeline. Form Builder tạo trường text, textarea, email, number, date, select, file qua giao diện; phản hồi và tệp phản hồi riêng tư.
+`wrangler.jsonc` là cấu hình Pages mặc định được Git integration tự phát hiện. `wrangler.pages.jsonc` là bản tương đương để tham khảo; nếu chỉnh cấu hình, giữ hai bản đồng nhất. Không chọn cấu hình Workers cũ để deploy Pages. `npm run configure` chỉ kiểm tra binding, không sửa database ID/bucket.
 
-Đây là bộ mã ứng dụng có thể cấu hình triển khai. Kiểm thử cục bộ được mô tả trong `VALIDATION.md`; chưa đồng nghĩa đã nghiệm thu trên tài khoản Cloudflare của bạn. Email transactional có ranh giới adapter; thông báo trong ứng dụng hoạt động. Không tự gửi email khi chưa tích hợp nhà cung cấp. Đặt lại mật khẩu qua liên kết một lần do quản trị cấp sau xác minh, có giao diện dùng ngay.
+## 2. Cấu trúc GitHub / ZIP
 
-## 2. Kiến trúc
+ZIP chỉ có một thư mục `CENTER/`. Bên trong:
 
-- **Account A — DATA:** `src/worker.js` ở chế độ `data`; bindings `DB` và `STORAGE`; chỉ nhận API có chữ ký.
-- **Account B — APPLICATION:** `src/proxy.js` phục vụ tài nguyên public và proxy `/api/*`. Ký HMAC SHA-256 theo method, path/query, timestamp, nonce, body hash và các header danh tính liên quan. Data Worker kiểm tra tuổi chữ ký và nonce chống phát lại.
-- Trình duyệt chỉ gọi cùng origin của Application. Shared secret không bao giờ gửi vào JavaScript trình duyệt. Cookie session HttpOnly/Secure/SameSite Lax chỉ thuộc host Application.
-- Một tài khoản: `wrangler.jsonc` chạy Worker ứng dụng cùng D1/R2, không cần proxy.
-- Pages: `functions/[[path]].js` dùng cùng proxy, nối tới Data Worker. Xem mục triển khai.
+- `public/`: HTML, JS, CSS, logo gốc, manifest, `_routes.json`, `_headers`.
+- `functions/[[path]].js`: adapter Pages, gọi backend cùng project.
+- `src/`: API, RBAC, DB, workflow, bảo mật, email, SEO.
+- `migrations/`: ba migration tuần tự.
+- `scripts/`: local runtime, seed, build, cấu hình.
+- `tests/`: API/security/email, browser, Pages/workerd với D1/R2 local.
+- `previews/`: ảnh kiểm tra giao diện.
 
-## 3. Cấu trúc
+Nếu GitHub chứa `CENTER` ở root repo, đặt **Root directory = CENTER**, output `public` (không phải `CENTER/public`). Nếu đưa nội dung CENTER lên root repo, Root directory để trống, output vẫn `public`. `functions` phải ở cùng cấp `package.json`, không nằm trong `public`.
 
-`src/` backend, policy, domain, security, proxy, SEO; `public/` giao diện và catalog; `migrations/` schema; `scripts/` local runtime, seed, build, configure; `tests/` kiểm thử; `functions/` adapter Pages. Không có dependency runtime phía trình duyệt, không CDN font/JS.
+## 3. Chạy local
 
-D1 dùng bảng `records` có loại, cột quan hệ và JSON theo schema catalog thay vì nhiều bảng lặp lại. Các bảng thành viên, phản biện, history, journey, files, form responses, registrations, roles/permissions và audit được chuẩn hóa với foreign keys/index. Một bản ghi kinh phí là một dự toán/thu/đề nghị/thực chi; các khoản duyệt được tổng hợp theo đề tài. Đây là quản lý kinh phí nội bộ.
-
-## 4. Yêu cầu
-
-Node.js **22.13+** (khuyến nghị 24), npm, tài khoản Cloudflare khi triển khai. Local dùng `node:sqlite` và storage trên đĩa; không cần D1/R2 thật và không cần Python. Wrangler đã được khóa phiên bản trong package-lock. Cài dependency để deploy bằng `npm ci`.
-
-## 5. Chạy local
-
-```bash
+```sh
 npm ci
 cp .env.example .dev.vars
-```
-
-Mở `.dev.vars`, đặt `SETUP_SECRET` bằng chuỗi ngẫu nhiên tối thiểu 32 ký tự nếu muốn thiết lập từ trắng; đặt `DEMO_PASSWORD` dài tối thiểu 12 ký tự nếu muốn dùng seed. Không dùng mật khẩu ví dụ trên môi trường thật.
-
-```bash
+# Điền DEMO_PASSWORD ngẫu nhiên >=12 ký tự và SETUP_SECRET riêng cho local.
 npm run seed
 npm run dev
 ```
 
-Mở `http://localhost:8787`. Các tài khoản demo: `demo-admin@example.test`, `demo-researcher@example.test`, `demo-reviewer@example.test`, `demo-manager@example.test`, `demo-finance@example.test`, `demo-ethics@example.test`. Mật khẩu là giá trị **bạn tự đặt** trong `DEMO_PASSWORD`. Seed không ghi đè tài khoản đã có. Tất cả nội dung mẫu gắn `[DEMO]`, không phải hoạt động thật.
+Mở `http://localhost:8787`. Seed tạo tài khoản `demo-admin@example.test`, `demo-researcher@example.test`, `demo-reviewer@example.test`, `demo-manager@example.test`, `demo-finance@example.test`, `demo-ethics@example.test`, cùng mật khẩu lấy từ DEMO_PASSWORD. Không có mật khẩu mặc định trong source. Dữ liệu đánh dấu DEMO; seed chỉ dùng local, không seed production.
 
-Nếu không seed: chạy `npm run dev`, mở `http://localhost:8787/#setup` để tạo quản trị viên đầu tiên. Migrations được tự áp dụng khi local server mở DB. Dữ liệu nằm ở `.local/data.sqlite`, tệp ở `.local/storage`. Xóa thư mục này chỉ khi muốn xóa toàn bộ dữ liệu local; tuyệt đối không nhầm với bản sao lưu.
+Local Node dùng SQLite/D1 adapter và R2 trên disk. Chạy đúng Pages/workerd:
 
-## 6. Build và test
+```sh
+npm run migrate:local
+# Khi test Pages trên localhost, đặt APP_ORIGIN=http://localhost:8788 trong .dev.vars.
+npm run dev:pages -- --port 8788
+```
 
-```bash
+Giữ `RESEND_API_KEY` trống ở local/test để không gửi email thật. Preview deployment cần DB/R2 và APP_ORIGIN riêng nếu muốn ghi dữ liệu; không dùng preview để thử phá dữ liệu production.
+
+## 4. Build và tests
+
+```sh
 npm run build
 npm test
+npx playwright install chromium
+npm run test:browser
+npm run test:pages
 ```
 
-Build kiểm tra cú pháp các module và JSON cấu hình; dự án dùng ES modules native nên không cần transpile frontend. `npm test` chạy API thật qua adapter D1 bằng SQLite và R2 trong bộ nhớ, không chỉ kiểm tra marker chuỗi. Kiểm thử trình duyệt tùy chọn: cài Playwright và Chromium ở môi trường QA, xem `tests/browser.mjs`. Không đóng dependency/browser vào ZIP.
+Build kiểm tra syntax/config và **biên dịch Pages Functions thật** vào `.build/pages`; thư mục này không phải output tĩnh. `test:pages` tự tạo D1/R2 local trong thư mục tạm, áp migration, khởi động Wrangler Pages, kiểm tra HTTP, đăng nhập, upload/download và Chromium, sau đó dọn tài nguyên local. Không gọi database production. Browser tests dùng tài khoản demo local. Có thể đặt `CHROMIUM_PATH` / `PLAYWRIGHT_MODULE` khi môi trường cung cấp trình duyệt sẵn. Kết quả đã chạy: xem `VALIDATION.md`.
 
-## 7. Tạo D1 và R2 trên Account A
+## 5. Migration production — không tạo D1/R2 mới
 
-Không dùng tài nguyên của hệ thống TK cũ. Chọn tài khoản DATA của Trung tâm mới:
+Sao lưu database hiện tại trước:
 
-```bash
-npx wrangler login
-export CLOUDFLARE_ACCOUNT_ID="ACCOUNT_A_ID"
-npx wrangler d1 create tt
-npx wrangler r2 bucket create TEN_BUCKET_RIENG
+```sh
+npx wrangler d1 export tt --remote --output backup-tt.sql
+npx wrangler d1 migrations list tt --remote
+npm run migrate:production
 ```
 
-Ghi lại database ID được trả về. R2 phải giữ private: không bật public `r2.dev`, không cấu hình public bucket domain. API Worker kiểm tra quyền trước mỗi download.
+Các migration cần có:
 
-Trong `.dev.vars`, điền `D1_DATABASE_ID`, `D1_DATABASE_NAME`, `R2_BUCKET_NAME`, `APP_ORIGIN` (HTTPS, không dấu `/` cuối), `DATA_API_URL`. Account ID không cần ghi trong mã; dùng `CLOUDFLARE_ACCOUNT_ID` đúng tài khoản ở từng shell triển khai.
+1. `0001_initial.sql`: schema nghiệp vụ, users, RBAC, sessions, audit, outbox gốc.
+2. `0002_email_delivery.sql`: attempts/error/recipient/sent_at, trigger notification → email.
+3. **`0003_email_reliability.sql`**: lịch retry, request đã cố định, provider ID, khóa xử lý nền.
 
-```bash
-npm run configure
+Nếu 0001/0002 đã áp bằng Wrangler migration, chỉ 0003 sẽ chạy. Không chạy lại toàn bộ SQL bằng copy/paste. Nếu trước đây import SQL thủ công, hãy đối chiếu `PRAGMA table_info(outbox)` và bảng `d1_migrations` trước: schema hiện có phải khớp migration đã áp. Không tự đánh dấu migration là đã chạy khi chưa kiểm tra cấu trúc. Migration không xóa dữ liệu nghiệp vụ. Áp migration **trước** khi deploy code mới.
+
+## 6. Variables và secrets
+
+Các biến không nhạy cảm đã có trong `wrangler.jsonc`:
+
+| Biến | Giá trị |
+|---|---|
+| MODE | `single` |
+| APP_ORIGIN | `https://research.skyfirst.io.vn` — không dấu `/` cuối |
+| EMAIL_FROM | `Sky First Research & Innovation Center <research@skyfirst.io.vn>` |
+| EMAIL_REPLY_TO | `research@skyfirst.io.vn` |
+| ADMIN_ALERT_EMAIL | tùy chọn: hộp thư quản trị thực nhận cảnh báo |
+
+Secrets đặt trong Pages → Settings → Variables and Secrets, môi trường Production:
+
+- `SETUP_SECRET`: chuỗi ngẫu nhiên mạnh cho bootstrap lần đầu; xóa sau thiết lập.
+- `RESEND_API_KEY`: API key Resend có quyền gửi từ domain đã xác minh.
+- `MAINTENANCE_SECRET`: chuỗi ngẫu nhiên ít nhất 32 ký tự nếu gọi endpoint bảo trì bằng scheduler ngoài.
+
+Có thể dùng CLI:
+
+```sh
+npx wrangler pages secret put SETUP_SECRET --project-name research-xcl
+npx wrangler pages secret put RESEND_API_KEY --project-name research-xcl
+npx wrangler pages secret put MAINTENANCE_SECRET --project-name research-xcl
 ```
 
-Lệnh chỉ đưa tên tài nguyên/ID/origin vào Wrangler; không chép secrets. Có thể chỉnh các placeholder ngay trong ba file Wrangler nếu muốn. Giữ bindings đúng **DB** và **STORAGE**.
+Không đưa key vào JS frontend, GitHub, ZIP hoặc log. `CLOUDFLARE_API_TOKEN` và `CLOUDFLARE_ACCOUNT_ID` chỉ cần cho CLI/CI, không phải binding frontend. `API_SHARED_SECRET` và `DATA_API_URL` không cần trong kiến trúc Pages hiện tại. Các file proxy/Workers cũ được giữ để tránh refactor phần không liên quan, không deploy chúng trong quy trình này.
 
-## 8. Migrations và Data Worker
+## 7. Deploy Pages / GitHub
 
-```bash
-export CLOUDFLARE_ACCOUNT_ID="ACCOUNT_A_ID"
-npx wrangler d1 migrations apply tt --remote --config wrangler.data.jsonc
-npx wrangler secret put SETUP_SECRET --config wrangler.data.jsonc
-npx wrangler secret put API_SHARED_SECRET --config wrangler.data.jsonc
-npm run deploy:data
+1. Backup D1; áp migration còn thiếu.
+2. Push source vào GitHub; kết nối **Pages project hiện có**, không tạo project Workers.
+3. Đặt root/build/output đúng mục 2; Node 24.
+4. Kiểm tra binding DB→tt, STORAGE→ttrungtam, variables và secrets Production.
+5. Deploy branch production (CLI thay thế: `npm run deploy:pages -- --project-name research-xcl`).
+6. Pages Custom domains gắn `research.skyfirst.io.vn`, chờ DNS/TLS active. Không dùng route Worker cũ che domain này.
+7. Sau thay đổi secrets/bindings, deploy lại để Functions nhận cấu hình mới.
+
+Không upload chỉ thư mục public qua thao tác kéo/thả Dashboard: cách đó không thay thế quy trình build/deploy Pages Functions từ Git/CLI.
+
+## 8. Kiểm tra chống trang trắng
+
+Pages tự chuẩn hóa `/index.html` về `/`. Backend lấy entry qua **native `env.ASSETS.fetch('/')`**, không gọi `context.next()` thay thế cho một URL asset khác, không biến redirect có body rỗng thành HTML 200. `_routes.json` cho CSS/JS/logo đi thẳng static; robots/sitemap vẫn chạy handler. Nếu HTML thiếu entry scripts/styles, trả HTTP 503 kèm thông báo thay vì trang trắng.
+
+Sau deploy kiểm tra:
+
+```sh
+curl -fsS https://research.skyfirst.io.vn/ > homepage.html
+curl -I https://research.skyfirst.io.vn/app.js
+curl -I https://research.skyfirst.io.vn/style.css
+curl -I https://research.skyfirst.io.vn/sky-first-logo.png
+curl -fsS https://research.skyfirst.io.vn/api/v1/health
 ```
 
-Nhập secrets ở prompt, không ghi vào source. `SETUP_SECRET` chỉ dùng tạo admin đầu tiên. `API_SHARED_SECRET` dùng chuỗi ngẫu nhiên ít nhất 32 byte, phải giống nhau trên Data và App. Ghi lại HTTPS URL Data Worker; cập nhật `DATA_API_URL` của App. Data endpoint trực tiếp không ký sẽ trả 401: đó là hoạt động đúng.
+`homepage.html` phải chứa `/app.js` và `/style.css`, không rỗng. Trình duyệt Network phải có JS/CSS/logo và API. Kiểm tra `/about`, `/explore`, `/robots.txt`, `/sitemap.xml`, `/#login`. Nếu 503: kiểm tra build output/root, artifact `public/index.html`, bindings và log Functions. Nếu API 500: xem mã request, migration và binding; không tắt auth để chữa lỗi.
 
-Cron mặc định mỗi ngày 01:00 UTC xóa session/token/nonce/rate limit hết hạn và nhắc task/milestone đến hạn ngày hôm sau. Không đặt cron trên App proxy.
+## 9. Quản trị đầu tiên / vận hành
 
-## 9. Application Worker trên Account B
+Mở `https://research.skyfirst.io.vn/#setup`, điền SETUP_SECRET và tài khoản admin thật; bootstrap chỉ dùng một lần. Nếu đã có admin, đăng nhập tài khoản hiện có, không reset database. Xóa SETUP_SECRET sau thiết lập.
 
-```bash
-export CLOUDFLARE_ACCOUNT_ID="ACCOUNT_B_ID"
-npx wrangler secret put API_SHARED_SECRET --config wrangler.app.jsonc
-npm run deploy:app
+Admin quản lý Users/Roles/Settings, các danh mục nghiên cứu, file, sự kiện, biểu mẫu và thông báo qua UI. Email outbox ở `/#w/email` (quyền settings), hiển thị trạng thái/lỗi/lần thử, nút xử lý hàng đợi và thử lại job lỗi còn trong cửa sổ an toàn. Liên kết reset mật khẩu do admin phát hành sau xác minh, chỉ dùng một lần trong 30 phút. Tệp R2 luôn đi qua API kiểm tra quyền; public download chỉ cho hồ sơ đã Published + Public thuộc danh mục cho phép.
+
+## 10. Resend và retry
+
+Xác minh domain `skyfirst.io.vn` trong Resend, cấu hình DNS SPF/DKIM theo Resend; kiểm tra DMARC và inbox `research@skyfirst.io.vn` nhận reply. Không hard-code API key. Email HTML dùng logo gốc từ URL production HTTPS; không gửi mật khẩu.
+
+Email bao gồm bootstrap/account creation, password reset/change, event registration, form receipt/admin alerts và các notification phân công/phản biện/cập nhật hồ sơ. Notification có liên kết workspace đúng `/#w/detail/ID`.
+
+Outbox ghi D1; khóa DB chống nhiều isolate gửi đồng thời; mỗi job có Idempotency-Key cố định và nội dung request cố định. Timeout mỗi request 5 giây, batch tối đa 4; lỗi tạm (network/408/409/429/5xx) backoff 60/120/240/480 giây, tôn trọng Retry-After đến 1 giờ; tối đa 5 lần tự động. Lỗi provider 4xx không retry vô hạn. Job mơ hồ quá 23 giờ dừng để không gửi lại ngoài cửa sổ idempotency 24 giờ của Resend. `sent` nghĩa Resend đã chấp nhận, **không phải xác nhận email đã vào inbox**; đối chiếu provider ID trong Resend.
+
+Token reset không xuất trong admin export/outbox UI, được xóa khỏi payload sau gửi; job reset hết hạn không được gửi. D1 backup vẫn là dữ liệu nhạy cảm cần bảo vệ.
+
+**Pages không chạy scheduled handler của Workers.** Có hai cách xử lý hàng đợi: request API kích hoạt xử lý nền bằng waitUntil và admin bấm xử lý. Để retry/deadline hoạt động cả lúc không có người truy cập, cấu hình scheduler HTTPS ngoài gọi mỗi phút:
+
+```sh
+curl --fail-with-body -X POST https://research.skyfirst.io.vn/api/v1/maintenance \
+  -H "Authorization: Bearer $MAINTENANCE_SECRET"
 ```
 
-Application không có D1/R2 binding. `DATA_API_URL` trỏ đúng gốc Data Worker, không thêm `/api`. Truy cập App bằng đúng `APP_ORIGIN` đã cấu hình ở Data Worker; origin khác sẽ bị chặn thao tác ghi.
+Lưu token trong secret store của scheduler, không query string hoặc Git. Endpoint yêu cầu POST và secret >=32 ký tự, không cookie/CSRF browser. Không cần thêm Cloudflare project. Maintenance dọn session/reset/rate nonce và kiểm tra deadline/ethics tối đa mỗi giờ, email theo lịch retry. Khi provider lỗi, sửa cấu hình trong Cloudflare, rồi chọn Thử lại trong outbox; reset link hết hạn phải phát hành link mới. Batch 4 phù hợp quy mô nhỏ/vừa; hàng nghìn email cần worker/queue chuyên dụng riêng sau này.
 
-Trong Cloudflare dashboard của App Worker → Settings → Domains & Routes, thêm domain thuộc tài khoản B. Cập nhật `APP_ORIGIN` ở Data Worker thành domain chính xác rồi deploy Data lại. Với staging, dùng bộ config, secrets và DB riêng; không bật wildcard origin.
+## 11. Production checklist
 
-## 10. Application bằng Pages (tùy chọn thay Worker B)
+- [ ] Backup và migration 0001→0002→0003 đã thành công.
+- [ ] Root/build/output, DB/STORAGE/domain đúng bảng cấu hình.
+- [ ] Secrets nằm trong Production, không nằm trong source.
+- [ ] GET homepage có HTML, JS/CSS/logo trả đúng MIME, không trắng ở desktop/mobile.
+- [ ] Đăng nhập/đăng xuất, bootstrap khóa, user không có quyền bị chặn.
+- [ ] Tạo/sửa hồ sơ, upload/download tệp riêng, public không đọc tệp đó.
+- [ ] Resend domain verified; thử reset/notification đến hộp thư do bạn kiểm soát, kiểm tra provider ID.
+- [ ] Scheduler bảo trì đã cấu hình nếu cần giao thư khi không có traffic.
+- [ ] Không seed demo vào production; xóa SETUP_SECRET sau bootstrap.
+- [ ] WAF/rate rules, giám sát 5xx, hạn mức D1/R2/Resend và backup định kỳ.
 
-Tạo Pages project có thư mục output `public`; thư mục `functions` nằm ở root dự án và phải được build/deploy cùng. Build command `npm run build`. Không chỉ upload các tệp public bằng cách bỏ qua Pages Functions.
+## 12. Backup / khôi phục / giới hạn
 
-```bash
-export CLOUDFLARE_ACCOUNT_ID="ACCOUNT_B_ID"
-npx wrangler pages project create sfrc-app
-npx wrangler pages secret put API_SHARED_SECRET --project-name sfrc-app
-npx wrangler pages deploy public --project-name sfrc-app
-```
+Xuất D1 bằng `wrangler d1 export tt --remote`; giữ bản SQL mã hóa ngoài project. Đồng bộ objects R2 qua S3-compatible client với credential riêng có quyền tối thiểu; không bật public bucket. Backup phải gồm DB metadata và objects cùng mốc. Thử restore vào môi trường riêng trước khi tác động production, đối chiếu file count/hash. Admin export chỉ là dữ liệu nghiệp vụ, không thay thế backup đầy đủ.
 
-Đặt `DATA_API_URL` trong Pages Environment Variables; deploy lại sau thay đổi. Production và Preview có cấu hình riêng. Data `APP_ORIGIN` phải khớp production domain. Preview dùng Data staging hoặc không được phép ghi. Pages Functions dùng `context.next()` để lấy assets.
+Bản này không tích hợp SSO hệ thống TK cũ, antivirus, chữ ký pháp lý hoặc chứng nhận nhà nước. Tài liệu chi tiết bảo mật ở SECURITY.md, API ở API.md. Chưa deploy thay bạn vào Cloudflare, chưa gửi Resend thật khi chưa có credentials. Không có thay đổi remote database trong quá trình sửa/kiểm thử này.
 
-## 11. Chạy một tài khoản
-
-Dùng `wrangler.jsonc`; áp dụng migrations, đặt `SETUP_SECRET`, cấu hình domain/APP_ORIGIN và `npm run deploy:single`. Không cần API_SHARED_SECRET trong chế độ single. D1 và R2 phải ở cùng tài khoản Worker này.
-
-## 12. Quản trị đầu tiên
-
-Mở `https://APP_DOMAIN/#setup`, điền tên, email, mật khẩu dài tối thiểu 12 ký tự và SETUP_SECRET. Bootstrap được khóa bằng hàng `initialized` duy nhất trong transaction. Sau thành công, đăng nhập và xóa SETUP_SECRET khỏi Worker nếu không còn cần. Không seed demo lên production.
-
-Trong Admin:
-
-1. Cài đặt: tên mã prefix, giới thiệu, sứ mệnh, tầm nhìn, giá trị, liên hệ, bình chọn ý tưởng.
-2. Tài khoản: tạo nhân sự, chọn vai trò, bàn giao mật khẩu tạm qua kênh riêng. Người dùng phải đổi mật khẩu lần đầu.
-3. Vai trò & quyền: bật/tắt quyền vận hành; System Admin được bảo vệ.
-4. Hồ sơ: tạo nhóm/đề tài, thêm thành viên và đồng chủ nhiệm, giao task, milestone.
-5. Nội dung: tạo tin, tài liệu/công bố; chọn Public, gửi/duyệt, sau đó công bố. Public không tự xuất hiện ngay khi lưu draft.
-
-## 13. Quy trình hoạt động
-
-Đề tài: Draft → Submitted → Screening/Review → Approved → Active → Acceptance → Completed → Published → Archived. Revision đưa hồ sơ về trạng thái được sửa. Phiếu phản biện đã nộp không sửa đè; tạo vòng mới để đánh giá tiếp. Người tham gia không tự phê duyệt dự án, kinh phí, ethics hoặc nghiệm thu của mình, kể cả System Admin; cần người độc lập.
-
-Đề tài có người tham gia chỉ được bắt đầu sau khi hồ sơ Ethics cùng đề tài đã được duyệt và còn hiệu lực. Nghiệm thu cần mã hồ sơ hội đồng cùng đề tài có kết luận. Ghi nhận/ethics chỉ là nghiệp vụ nội bộ, không phải chứng nhận nhà nước.
-
-Mức truy cập: Public (chờ duyệt công bố), Internal (mọi tài khoản đăng nhập), Restricted (chủ hồ sơ/nhóm/nhân sự có quyền), Confidential (chủ hồ sơ, người phản biện được giao, quản lý chuyên trách). Kinh phí/ethics/hội đồng/đối tác/hợp tác không cho đặt Public/Internal.
-
-Tệp hồ sơ được tải khi hồ sơ còn mở sửa; khi đã công bố cần mở lại quy trình để thay đổi. Tệp phản hồi Form dùng bảng và đường dẫn riêng, chỉ người gửi/chủ form/điều phối xem được. Giới hạn 10 MB/tệp, tải xuống dạng attachment; có metadata và phiên bản hồ sơ tại thời điểm upload. Preview Office/biên tập tài liệu đồng thời không có trong bản này.
-
-## 14. Backup/recovery
-
-Admin → Xuất dữ liệu tải từng bảng nghiệp vụ thành JSON theo trang, không xuất password/session. Đây là bản xuất dữ liệu, **không thay thế backup toàn DB**.
-
-Sao lưu D1 đầy đủ:
-
-```bash
-export CLOUDFLARE_ACCOUNT_ID="ACCOUNT_A_ID"
-npx wrangler d1 export tt --remote --output=backup.sql --config wrangler.data.jsonc
-```
-
-Bảo quản SQL trong nơi riêng có kiểm soát truy cập. Sao lưu objects R2 bằng công cụ S3-compatible với credential tối thiểu, cùng metadata DB và đúng object key. Tệp soft-delete vẫn tồn tại để phục hồi; không tự xóa vật lý. Thực hiện backup theo lịch vận hành phù hợp và thử phục hồi vào DB/bucket staging trước khi áp dụng production. Khôi phục đầy đủ cần SQL + objects + cấu hình; secrets được khôi phục từ kho secret riêng. Không ghi secret vào file backup công khai.
-
-## 15. Troubleshooting
-
-- `503 Chưa cấu hình`: kiểm tra binding và DATA_API_URL/secret đúng môi trường, deploy lại.
-- `401 API authentication`: secret hai phía không khớp, Data đang nhận yêu cầu trực tiếp không ký.
-- `403 Yêu cầu không đúng nguồn`: APP_ORIGIN khác domain truy cập hoặc thiếu header SFRC; không sửa thành wildcard.
-- `409 Phiên bản`: mở lại hồ sơ trước khi lưu, tránh ghi đè dữ liệu người khác.
-- `409` khi duyệt: đọc thông báo điều kiện (phiếu phản biện, ethics, hội đồng); không sửa DB để vượt quy trình.
-- Login local: truy cập `localhost`, không dùng IP khác origin. Cookie Secure được trình duyệt hiện đại hỗ trợ cho localhost.
-- `500`: lấy `request_id`, xem Worker logs; chưa migration, binding sai hoặc lỗi dữ liệu. Không gửi secret vào ticket.
-- R2 object không có: kiểm tra bộ DB và bucket tương ứng cùng môi trường, không trộn DB staging với bucket production.
-- Cài dependency: cần kết nối npm registry. Lệnh local/test thuần Node có thể chạy không có Wrangler; deploy/dry-run cần npm ci.
-
-Xem thêm `API.md`, `SECURITY.md`, `VALIDATION.md`.
-
-## 16. Các hình thức sử dụng hiện có
-
-Hội đồng được quản lý bằng hồ sơ thành viên/vai trò, lịch, kết luận và tệp biên bản; phản biện là các phiếu có tài khoản được phân công độc lập. Không có phòng họp trực tuyến hoặc bỏ phiếu kín. Timeline sắp xếp hồ sơ theo hạn, Board phân cột trạng thái; thay đổi trạng thái thực hiện trong hồ sơ để giữ kiểm tra quyền và audit. Biểu mẫu yêu cầu đăng nhập, phù hợp tiếp nhận thành viên đã được cấp tài khoản. Đây là các quy tắc vận hành của bản bàn giao, không phải nút giả hoặc dữ liệu frontend không lưu.
-
-Ảnh chụp giao diện mẫu có thể xem trong `previews/`. Toàn bộ thông tin DEMO chỉ để kiểm tra UI.
-
-Tài liệu Cloudflare tham chiếu khi xây dựng:
-- https://developers.cloudflare.com/d1/worker-api/d1-database/
-- https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
-- https://developers.cloudflare.com/workers/static-assets/binding/
-
-## Cloudflare Pages single-project deployment (account-limited mode)
-
-This package includes a Pages adapter so the existing `research-xcl` Pages project can run the frontend and API together. It does not require a separate Data Worker or `DATA_API_URL`.
-
-Cloudflare Pages settings when the repository project is inside `CENTER`:
-
-- Root directory: `CENTER`
-- Build command: `npm run build`
-- Build output directory: `public`
-- Production variable: `APP_ORIGIN=https://research.skyfirst.io.vn`
-- D1 binding: `DB` -> database `tt` (`ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1`)
-- R2 binding: `STORAGE` -> bucket `ttrungtam`
-
-`API_SHARED_SECRET` is not required for this single Pages deployment because the Pages Function calls the API handler directly rather than crossing accounts over HTTPS. It may be removed from this Pages project after migration to this mode. `RESEND_API_KEY` is harmless but email delivery is not enabled until a real email provider adapter is implemented.
-
-Before production use, apply `migrations/0001_initial.sql` to D1 `tt`. Then redeploy the Pages project and attach the custom domain `research.skyfirst.io.vn`.
-
-Note: Pages does not run the Worker cron trigger from `wrangler.jsonc`. The web/API application works without it, but scheduled expiry/cleanup/deadline jobs need a separate scheduled mechanism later if those automations are required.
-
-## Transactional email (Resend)
-Production email is integrated through the existing D1 outbox. The default sender is `Sky First Research & Innovation Center <research@skyfirst.io.vn>` and reply-to is `research@skyfirst.io.vn`.
-
-Required Cloudflare Pages settings:
-- Secret `RESEND_API_KEY`: Resend API key. Never commit it.
-- Variable `EMAIL_FROM`: `Sky First Research & Innovation Center <research@skyfirst.io.vn>`
-- Variable `EMAIL_REPLY_TO`: `research@skyfirst.io.vn`
-- Variable/Secret `ADMIN_ALERT_EMAIL`: private inbox that should receive important administrative alerts.
-
-Before production sending, verify `skyfirst.io.vn` (or the exact sending domain) in Resend and publish the DNS records Resend provides. Without domain verification, Resend can reject the sender even when the API key is valid.
-
-Email coverage includes in-app notifications (assignment, review and record notifications), account creation, password reset/change security notices, event registration, form submissions and important admin alerts. Messages are written to `outbox`, delivered through Resend, retried up to five attempts, and failures remain auditable in D1. Passwords and secrets are never emailed.
-
-## Cloudflare Pages repository layout (production)
-The delivery ZIP is intentionally wrapped in a single top-level `CENTER/` directory.
-If the Git repository contains that same `CENTER/` directory, configure Cloudflare Pages with:
-- Root directory: `CENTER`
-- Build command: `npm run build`
-- Build output directory: `public`
-
-The Pages Function explicitly bypasses static assets (`.css`, `.js`, images, fonts, etc.) to prevent the blank-page failure mode where the document loads but no frontend resources are requested.
-The official SKY FIRST logo is stored at `public/sky-first-logo.png` and is used across public navigation, authentication, workspace/sidebar and social preview metadata.
+Tài liệu nền tảng: https://developers.cloudflare.com/pages/functions/api-reference/ ; https://developers.cloudflare.com/pages/functions/routing/ ; https://resend.com/docs/dashboard/emails/idempotency-keys .

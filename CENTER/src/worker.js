@@ -19,9 +19,14 @@ export async function fetchHandler(request, env) {
       if (env.MODE === "data")
         return new Response("Not found", { status: 404 });
       const rendered = await seo(request, env, (path) =>
-        fetchHandler(new Request(new URL(path, request.url)), env),
+        fetchHandler(new Request(new URL(path, request.url)), {...env, SKIP_BACKGROUND:true}),
       );
       return secure(rendered || (await env.ASSETS.fetch(request)));
+    }
+    if (url.pathname === "/api/v1/maintenance") {
+      if (request.method !== "POST" || !env.MAINTENANCE_SECRET || env.MAINTENANCE_SECRET.length<32 || !equal(request.headers.get("authorization"),`Bearer ${env.MAINTENANCE_SECRET}`)) fail(403,"Forbidden");
+      await maintenance(env);
+      return secure(Response.json(await flushOutbox(env)));
     }
     if (env.MODE === "data") {
       if (!env.API_SHARED_SECRET || env.API_SHARED_SECRET.length < 32)
@@ -68,8 +73,10 @@ export async function fetchHandler(request, env) {
       ? await publicFile(request, env, pub[1])
       : await api(request, env);
     // Transactional email is flushed after the business transaction succeeds.
-    const delivery = flushOutbox(env).catch((e) => console.error("email_flush", String(e.message).slice(0,200)));
-    if (env.WAIT_UNTIL) env.WAIT_UNTIL(delivery); else await delivery;
+    if (!env.SKIP_BACKGROUND) {
+      const delivery = maintenance(env).then(()=>flushOutbox(env)).catch(()=>console.error("background_job_failed"));
+      if (env.WAIT_UNTIL) env.WAIT_UNTIL(delivery); else await delivery;
+    }
     return secure(response);
   } catch (e) {
     const status =
@@ -95,10 +102,11 @@ export async function fetchHandler(request, env) {
     );
   }
 }
-export default {
-  fetch: fetchHandler,
-  async scheduled(event, env) {
-    const n = Math.floor(Date.now() / 1000);
+export async function maintenance(env, force=false) {
+    const n = Math.floor(Date.now() / 1000), token=uuid();
+    const lock=await env.DB.prepare("INSERT INTO job_locks(name,token,expires) VALUES('maintenance',?,?) ON CONFLICT(name) DO UPDATE SET token=excluded.token,expires=excluded.expires WHERE job_locks.expires<?").bind(token,n+3600,n).run();
+    if (!lock.meta?.changes && !force) return;
+    try {
     await env.DB.prepare(
       "UPDATE records SET status='expired',version=version+1,updated_at=CURRENT_TIMESTAMP WHERE kind='ethics' AND status='approved' AND json_extract(data,'$.expires')<date('now')",
     ).run();
@@ -110,6 +118,9 @@ export default {
     await env.DB.prepare(
       `INSERT INTO notifications(id,user_id,title,record_id) SELECT lower(hex(randomblob(16))),owner_id,'Sắp đến hạn: '||title,id FROM records r WHERE deleted=0 AND kind IN ('tasks','milestones') AND status NOT IN ('completed','archived') AND json_extract(data,'$.due')=date('now','+1 day') AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.record_id=r.id AND n.title='Sắp đến hạn: '||r.title AND date(n.created_at)=date('now'))`,
     ).run();
-    await flushOutbox(env, 50);
-  },
-};
+    } catch(e) {
+      await env.DB.prepare("DELETE FROM job_locks WHERE name='maintenance' AND token=?").bind(token).run();
+      throw e;
+    }
+}
+export default {fetch:fetchHandler, async scheduled(event,env) {await maintenance(env,true);await flushOutbox(env);}};

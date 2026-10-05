@@ -12,7 +12,8 @@
     {
       "binding": "DB",
       "database_name": "tt",
-      "database_id": "ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1"
+      "database_id": "ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1",
+      "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [

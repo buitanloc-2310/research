@@ -68,3 +68,14 @@ Access Public vẫn chỉ xuất hiện ngoài website sau trạng thái Publish
 - Bộ đếm views/downloads là lượt request, không phải số người duy nhất.
 - DOI chỉ là trường nhập DOI đã được cấp; không sinh DOI. Trích dẫn là gợi ý văn bản, không có xác minh metadata từ nhà xuất bản.
 - Session 12 giờ. Mật khẩu PBKDF2-SHA256 salt riêng, hash session/reset token trong D1. Không hard-code account/password.
+
+
+## Pages production: email và bảo trì
+
+- `GET /api/v1/admin/email`: quyền settings; 100 job gần nhất, chỉ metadata, không trả token/payload.
+- `POST /api/v1/admin/email/flush`: quyền settings + CSRF; xử lý batch tối đa 4 job đã đến lịch.
+- `POST /api/v1/admin/email/retry`: quyền settings + CSRF; body `{ "id": "job-id" }`; chỉ job failed còn trong cửa sổ idempotency, không gửi reset hết hạn; có audit.
+- `POST /api/v1/maintenance`: server-to-server, `Authorization: Bearer MAINTENANCE_SECRET` >=32 ký tự; dọn/nhắc hạn và flush email. Không cần session; không cho CORS.
+- `POST /api/v1/admin/reset`: trả `url`, `expires_in`, `email_queued`, `email_configured`. Không dùng boolean emailed để khẳng định đã gửi.
+- `outbox` không còn trong admin export vì có liên kết reset tạm thời; sao lưu D1 đầy đủ chỉ dành cho người vận hành có quyền Cloudflare.
+- Email sent = provider accepted; provider_id dùng đối chiếu dashboard Resend. Không có webhook xác nhận inbox/delivery.

@@ -82,10 +82,14 @@ export async function seo(request, env, requestApi) {
           )
           .join("");
   }
+  // Pages redirects /index.html to /. Fetch its canonical asset directly;
+  // turning the redirect's empty body into HTML 200 caused the blank screen.
   const asset = await env.ASSETS.fetch(
-    new Request(new URL("/index.html", url), request),
+    new Request(new URL("/", url), request),
   );
   let html = await asset.text();
+  if (!asset.ok || !html.includes('src="/app.js"') || !html.includes('href="/style.css"'))
+    return new Response("Không tải được giao diện. Kiểm tra Pages build output = public và ASSETS binding.", {status: 503, headers: {"content-type":"text/plain;charset=utf-8", "cache-control":"no-store"}});
   html = html
     .replace(/<title>.*?<\/title>/, `<title>${e(title)}</title>`)
     .replace(
@@ -93,19 +97,19 @@ export async function seo(request, env, requestApi) {
       `<link rel="canonical" href="${e(url.origin + url.pathname)}"><meta property="og:url" content="${e(url.origin + url.pathname)}"><meta property="og:image" content="${e(url.origin)}/sky-first-logo.png"></head>`,
     )
     .replace(
-      /<meta name="description" content="[^"]*">/,
+      /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/,
       `<meta name="description" content="${e(description)}">`,
     )
     .replace(
-      /<meta property="og:title" content="[^"]*">/,
+      /<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/,
       `<meta property="og:title" content="${e(title)}">`,
     )
     .replace(
-      /<meta property="og:description" content="[^"]*">/,
+      /<meta\s+property="og:description"\s+content="[^"]*"\s*\/?>/,
       `<meta property="og:description" content="${e(description)}">`,
     )
     .replace(
-      '<div id="app"><div class="loading">Đang mở không gian nghiên cứu…</div></div>',
+      /<div id="app">\s*<div class="loading">[^<]*<\/div>\s*<\/div>/,
       '<div id="app"><article class="article">' + body + "</article></div>",
     );
   return new Response(html, {

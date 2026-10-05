@@ -87,6 +87,7 @@ try {
     "journey",
     "reviews",
     "notifications",
+    "email",
     "security",
     "users",
     "roles",
@@ -112,11 +113,16 @@ try {
   await page.locator('[data-step="0"]').click();
   await page.waitForSelector("#journeyForm");
   await page.locator("#journeyForm [name=note]").fill("Browser QA note");
+  await page.route("**/api/v1/records/demo-projects", async route => {
+    if (route.request().method() === "GET") await new Promise(r=>setTimeout(r,250));
+    await route.continue();
+  });
   await page.locator("#journeyForm button[type=submit]").click();
   await page.waitForFunction(() => !document.querySelector("dialog").open);
   console.log("Journey updated");
   await page.goto("http://localhost:8877/#w/ideas");
   await page.waitForSelector("#newRecord");
+  await page.waitForTimeout(350); // The delayed detail response must not replace the new route.
   await page.locator("#newRecord").click();
   await page.locator("#recordForm [name=title]").fill("Browser QA Idea");
   await page
@@ -168,7 +174,7 @@ try {
   await screenshot("settings-dark-mobile");
   assert.deepEqual(errors, []);
   console.log(
-    "Browser QA passed: public, login, 35 workspace/admin routes, Journey update, idea create, Form Builder, mobile overflow, dark mode.",
+    "Browser QA passed: public, login, 36 workspace/admin routes, Journey update, idea create, Form Builder, mobile overflow, dark mode.",
   );
 } finally {
   await browser?.close();

@@ -1,28 +1,37 @@
-# Báo cáo kiểm tra — 05/10/2026
+# Production validation — 05/10/2026
 
-## Đã thực hiện
+Kiểm tra trực tiếp bản source ZIP người dùng cung cấp; không xây lại hệ thống.
 
-- Node 24.19: build kiểm tra syntax frontend/backend/scripts/Pages adapter và các cấu hình.
-- 46 kiểm thử thực thi bằng Node test runner, API Worker thật, D1 adapter chạy SQLite có foreign keys và transactions, R2 memory adapter.
-- Migration từ DB trống + seed demo chạy thành công.
-- Wrangler D1 local emulator: migration `0001_initial.sql` áp dụng thành công.
-- Pages Functions: biên dịch Worker thành công.
-- Wrangler dry-run Data Worker và Application Worker: bundle thành công, không dùng credential production.
-- Chromium headless: public desktop, đăng nhập, 35 routes workspace/admin, Research Journey 15 bước, sửa bước, tạo ý tưởng, Form Builder, viewport 390px không tràn ngang, dark mode. Không ghi nhận JavaScript page error trong luồng kiểm thử.
-- Xem ảnh chụp giao diện desktop/mobile để kiểm tra bố cục và khả năng đọc.
+| Kiểm tra đã chạy | Kết quả |
+|---|---|
+| `npm ci` | PASS, lockfile đầy đủ |
+| `npm run build` | PASS syntax/config + biên dịch Pages Functions bằng Wrangler 4.34.0 |
+| `npm test` | **63 PASS / 0 FAIL / 0 skipped** |
+| `npm run test:pages` | **19 PASS / 0 FAIL** trên Pages/workerd với D1/R2 local |
+| `npm run test:browser` | PASS public/login, **36 màn hình workspace/admin**, Journey update, idea create, Form Builder, mobile, dark mode |
+| D1 local migrations | 0001, 0002, 0003 áp thành công bằng Wrangler |
+| Logo chính thức | SHA-256/byte đối chiếu khớp file PNG trong ZIP gốc |
+| ZIP cuối | **48 file**, tất cả nằm dưới đúng `CENTER/`, ZIP integrity PASS |
 
-## Các nhóm test
+Tổng kiểm thử có bộ đếm riêng: **82 PASS / 0 FAIL** (63 API/security/email + 19 Pages smoke). Browser suite là một kịch bản end-to-end với 36 màn hình và các thao tác nêu trên, không cộng 36 màn hình thành 36 unit test.
 
-Authentication/cookie; reset một lần và thu hồi session; bootstrap khóa sau lần đầu; CSRF; RBAC admin; IDOR/search ACL; project/task CRUD; optimistic locking; Journey; R2 upload/private download; executable extension rejection; reviewer conflict/assignment/immutable verdict; approval/start/acceptance; ethics validity; dataset sensitive publish rejection; public SSR escaping/sitemap; event capacity; form required fields và private response upload; SQL injection input; append-only audit; HMAC/replay/cookie tampering; cron idempotence; foreign assignee validation.
+## Lỗi thực tế đã sửa
 
-## Lỗi phát hiện và sửa
+1. Domain production trước sửa trả HTTP 200 với body rỗng. Source SEO lấy `/index.html`; Pages chuẩn hóa URL này về `/` bằng redirect. Đọc body redirect rồi trả HTML 200 tạo trang trắng không tải assets. Dùng native ASSETS fetch URL `/`, kiểm tra entry trước trả HTML; không dùng context.next làm fetch một asset URL khác. Đã tái hiện lỗi trên Pages local trước sửa (503 khi bật guard), sau sửa 19 smoke PASS.
+2. Cấu hình mặc định trước đây là Workers dù deploy Pages. `wrangler.jsonc` giờ là Pages, root/output rõ ràng; config Workers cũ giữ riêng.
+3. `_routes.json` tách assets; robots/sitemap vẫn qua handler. Sửa MIME favicon PNG, thêm app manifest, metadata và ảnh email dùng logo gốc. Không chỉnh ảnh logo.
+4. Resend outbox thêm lease, idempotency, request cố định, timeout, backoff, hạn retry, receipt và bảo vệ reset token. Thêm admin outbox + retry có quyền/audit; endpoint bảo trì bảo vệ secret. Không còn claim email delivered chỉ dựa trên việc key tồn tại.
+5. Đổi mật khẩu thu hồi reset token còn hiệu lực; phát hành reset mới hủy email reset cũ còn chờ. Outbox không xuất qua admin export thông thường.
+6. Browser test lặp lại phát hiện delayed detail refresh sau lưu Journey ghi đè trang mới. Thêm guard theo route và regression có chủ động delay mạng; chạy lại PASS.
 
-- Placeholder bucket ban đầu không đáp ứng định dạng R2: đã đổi thành placeholder chữ thường hợp lệ và giữ bước configure bắt buộc.
-- Giao diện hỏi bỏ thay đổi sau khi đã lưu: đã xóa dirty flag trước khi chuyển trang.
-- Tệp phản hồi biểu mẫu cần ACL riêng: đã tách bảng/endpoint và kiểm tra owner/form khi nộp.
-- Phạm vi đọc reviewer cần nhất quán giữa danh sách và chi tiết: đã kiểm tra assignment ở chi tiết.
-- Thao tác async đổi route có thể kết thúc khác thứ tự: đã serialize luồng render route.
+## Phạm vi kiểm thử
 
-## Chưa xác minh trên production
+Auth/session/CSRF, user-role permissions, IDOR, private dataset/files, project CRUD/concurrency, Journey/task, review/ethics/acceptance/publication workflows, finance self-approval, event capacity, form access/upload, SQL injection, audit, API errors; HMAC legacy tests được giữ.
 
-Chưa tạo D1/R2 thật, chưa deploy tài khoản A/B, chưa gắn domain, chưa gửi email thật, chưa thực hiện load test quy mô lớn hoặc kiểm toán bảo mật độc lập. Không gọi bản kiểm thử cục bộ là chứng nhận tuyệt đối không còn lỗi. Cần smoke test staging sau khi cấu hình tài nguyên thật; đã có hướng dẫn và source tests để chạy lại.
+Email dùng fake provider có kiểm tra nội dung HTTP: sender/reply-to/logo/escaping, missing key, concurrent sends, backoff/429, stable idempotency/body, provider 422, exhaustion, expired window/reset, trigger notification, role checks, token revocation và manual retry. Không gửi email thật hoặc dùng Resend production key.
+
+Pages suite chạy Functions bundle thật trên workerd, native ASSETS, migrations thật trên D1 local, R2 local upload/download, browser load CSS/JS/logo, PBKDF2/login, admin email và mobile không tràn ngang. Môi trường kiểm thử không cho Node liệt kê network interfaces; đã dùng fallback loopback **chỉ cho CLI test runtime**, không chỉnh code ứng dụng hoặc đưa shim này vào bản bàn giao. Chromium thực thi headless; ảnh trong previews được cập nhật từ lần chạy cuối.
+
+## Chưa thực hiện trên production
+
+Không thay đổi hoặc deploy Cloudflare account, không sửa D1/R2 remote, không gửi Resend thật. Chủ hệ thống cần áp migration còn thiếu, secrets/bindings và deploy theo README, rồi smoke test domain/inbox thật. Không có load test diện rộng hoặc kiểm toán độc lập; PASS cục bộ không phải cam kết không còn lỗi ở mọi điều kiện vận hành.
