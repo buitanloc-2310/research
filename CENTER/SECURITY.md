@@ -40,3 +40,11 @@ Không có antivirus nội dung tệp hoặc chống DDoS cấp ứng dụng chu
 
 ## Email security
 `RESEND_API_KEY` and `ADMIN_ALERT_EMAIL` are deployment secrets/variables and must not be committed. Transactional mail never contains plaintext passwords, API keys or session tokens. Password-reset links are single-use and expire after 30 minutes. Email delivery uses the D1 outbox with bounded retries; failed deliveries do not roll back the underlying business transaction.
+
+## Website CMS / public content security (v1.1.0)
+
+Website CMS is not a separate trust boundary: Admin CMS routes require an authenticated session plus the existing same-origin/`X-Requested-With` write protection and `settings` permission; publish additionally requires `publish`. URL inputs reject non-http(s)/mailto/tel/internal schemes. Block text is rendered escaped by the frontend. Media uploads are size/signature/type checked, SVG is not accepted, and R2 objects remain private unless CMS metadata explicitly marks them public through use in public content. Delete checks references before removing objects.
+
+`/api/v1/public/settings` and `/api/v1/public/site` only expose public presentation/contact settings. Resend/setup/maintenance/API secrets never belong in these tables or public responses.
+
+CSP keeps `default-src 'self'` and narrowly permits Cloudflare Analytics at `static.cloudflareinsights.com` (`script-src`) and `cloudflareinsights.com` (`connect-src`). No wildcard script source is used.

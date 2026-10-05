@@ -1,4 +1,4 @@
-export const BRAND = "Trung tâm Nghiên cứu & Đổi mới Sáng tạo SKY FIRST";
+export const BRAND = "TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST";
 export const ROLES = {
   admin: "Quản trị hệ thống",
   coordinator: "Điều phối trung tâm",

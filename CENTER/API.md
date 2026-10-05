@@ -79,3 +79,29 @@ Access Public vẫn chỉ xuất hiện ngoài website sau trạng thái Publish
 - `POST /api/v1/admin/reset`: trả `url`, `expires_in`, `email_queued`, `email_configured`. Không dùng boolean emailed để khẳng định đã gửi.
 - `outbox` không còn trong admin export vì có liên kết reset tạm thời; sao lưu D1 đầy đủ chỉ dành cho người vận hành có quyền Cloudflare.
 - Email sent = provider accepted; provider_id dùng đối chiếu dashboard Resend. Không có webhook xác nhận inbox/delivery.
+
+## Website CMS API (v1.1.0)
+
+Public:
+
+- `GET /api/v1/public/site` — public Site Settings, enabled navigation/footer.
+- `GET /api/v1/public/pages` — danh sách page đã publish.
+- `GET /api/v1/public/pages/:slug` — published snapshot của page.
+- `GET /api/v1/public/media/:id` — chỉ media đã được đánh public.
+
+Admin (session + CSRF/origin + quyền `settings`; publish cần thêm quyền `publish`):
+
+- `GET|PATCH /api/v1/admin/cms/site`
+- `GET|POST|PATCH|DELETE /api/v1/admin/cms/navigation`
+- `GET|POST|PATCH|DELETE /api/v1/admin/cms/footer`
+- `GET|POST /api/v1/admin/cms/pages`
+- `GET|PATCH|DELETE /api/v1/admin/cms/pages/:id`
+- `GET /api/v1/admin/cms/pages/:id/preview`
+- `POST /api/v1/admin/cms/pages/:id/reorder`
+- `POST /api/v1/admin/cms/pages/:id/publish`
+- `POST /api/v1/admin/cms/blocks`
+- `PATCH|DELETE /api/v1/admin/cms/blocks/:id`
+- `GET|POST /api/v1/admin/cms/media`
+- `GET|PATCH|DELETE /api/v1/admin/cms/media/:id`
+
+CMS writes are persisted to D1. Media bytes are stored in R2; D1 stores only metadata/reference. Public settings/media endpoints are intentionally allowlisted and never return application secrets.

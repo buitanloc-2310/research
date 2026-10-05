@@ -35,6 +35,7 @@ import {
 } from "./policy.js";
 import { text, validate, transition } from "./domain.js";
 import { queueEmail, adminAlert, flushOutbox } from "./notifications.js";
+import { publicCms, adminCms } from "./cms.js";
 const json = (data, status = 200, headers = {}) =>
   Response.json(data, {
     status,
@@ -228,7 +229,19 @@ export async function api(req, env) {
     )
       fail(403, "Yêu cầu không đúng nguồn.");
   }
-  if (p === "/api/health") return json({ ok: true, version: "1.0.0" });
+  if (p === "/api/health") {
+    if (!env.DB || typeof env.DB.prepare !== "function") return json({ ok: false, version: "1.1.0", database: "missing_binding" }, 503);
+    let database = "ok";
+    try {
+      await one(env, "SELECT 1 FROM settings LIMIT 1");
+    } catch {
+      database = "schema_unavailable";
+    }
+    return json({ ok: database === "ok", version: "1.1.0", database }, database === "ok" ? 200 : 503);
+  }
+  if (!env.DB || typeof env.DB.prepare !== "function") fail(503, "Cơ sở dữ liệu chưa được cấu hình.");
+  const cmsPublic = await publicCms(req, env, p);
+  if (cmsPublic) return cmsPublic;
   if (p === "/api/setup" && method === "GET")
     return json({
       required: !(await one(
@@ -333,8 +346,12 @@ export async function api(req, env) {
       env,
       "SELECT key,value FROM settings WHERE key IN ('intro','mission','vision','values','contact','prefix','vote_enabled')",
     );
+    const site = await all(env, "SELECT key,value FROM site_settings");
     return json({
-      settings: Object.fromEntries(rows.map((r) => [r.key, r.value])),
+      settings: {
+        ...Object.fromEntries(site.map((r) => [r.key, r.value])),
+        ...Object.fromEntries(rows.map((r) => [r.key, r.value])),
+      },
     });
   }
   if (p === "/api/public/search") {
@@ -454,6 +471,8 @@ export async function api(req, env) {
   if (u.force_change) fail(403, "Bạn cần đổi mật khẩu trước khi sử dụng.");
   if (!["GET", "HEAD"].includes(method))
     await rate(env, "write:" + u.id, 240, 60);
+  const cmsAdmin = await adminCms(req, env, u, p, method);
+  if (cmsAdmin) return cmsAdmin;
 
   const rf = p.match(/^\/api\/response-files\/([^/]+)$/);
   if (rf) {

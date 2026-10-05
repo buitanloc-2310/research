@@ -1,9 +1,9 @@
 {
-  "name": "Sky First Research & Innovation Center",
-  "short_name": "Sky First Research",
+  "name": "SKY FIRST RESEARCH & INNOVATION CENTER",
+  "short_name": "Sky First R&I",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#102f43",
+  "theme_color": "#0b1f4d",
   "background_color": "#f4f7fb",
   "icons": [
     {
