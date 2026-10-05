@@ -352,7 +352,7 @@ export async function api(req, env) {
         ...Object.fromEntries(site.map((r) => [r.key, r.value])),
         ...Object.fromEntries(rows.map((r) => [r.key, r.value])),
       },
-    });
+    }, 200, { "cache-control": "public,max-age=30,s-maxage=120,stale-while-revalidate=300" });
   }
   if (p === "/api/public/search") {
     const q = text(url.searchParams.get("q"), 100);

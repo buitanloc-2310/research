@@ -3,6 +3,7 @@ import { all, one, run, stmt, audit } from "./db.js";
 import { requirePerm } from "./policy.js";
 
 const json = (data, status = 200, headers = {}) => Response.json(data, { status, headers: { "cache-control": "no-store", ...headers } });
+const PUBLIC_CACHE = { "cache-control": "public,max-age=30,s-maxage=120,stale-while-revalidate=300" };
 const text = (v, max = 10000) => String(v ?? "").trim().slice(0, max);
 const BLOCK_TYPES = new Set(["hero","heading","rich_text","image","cta","statistics","cards","feature_grid","partners","faq"]);
 const SITE_KEYS = new Set(["center_name","english_name","tagline","description","website","hotline","email","support_email","facebook","facebook_group","logo_media_id","favicon_media_id","copyright"]);
@@ -89,20 +90,25 @@ async function mediaIsPubliclyReferenced(env, id) {
 
 export async function publicCms(req, env, p) {
   if (p === "/api/public/pages") {
-    return json({ items: await all(env, "SELECT slug,title,published_at FROM cms_pages WHERE status='published' AND published_snapshot IS NOT NULL ORDER BY slug") });
+    return json({ items: await all(env, "SELECT slug,title,published_at FROM cms_pages WHERE status='published' AND published_snapshot IS NOT NULL ORDER BY slug") }, 200, PUBLIC_CACHE);
   }
   if (p === "/api/public/site") {
-    const settings = Object.fromEntries((await all(env,"SELECT key,value FROM site_settings")).map(x=>[x.key,x.value]));
+    const settingsRows = await all(env,"SELECT key,value FROM site_settings");
+    const legacyRows = await all(env,"SELECT key,value FROM settings WHERE key IN ('intro','mission','vision','values','contact')");
+    const settings = {
+      ...Object.fromEntries(settingsRows.map(x=>[x.key,x.value])),
+      ...Object.fromEntries(legacyRows.map(x=>[x.key,x.value])),
+    };
     const navigation = await all(env,"SELECT id,label,url,position,external,new_tab FROM cms_navigation WHERE enabled=1 ORDER BY position,id");
     const footer = await all(env,"SELECT id,column_key,heading,label,url,position FROM cms_footer_links WHERE enabled=1 ORDER BY column_key,position,id");
-    return json({settings,navigation:navigation.map(x=>({...x,external:!!x.external,new_tab:!!x.new_tab})),footer});
+    return json({settings,navigation:navigation.map(x=>({...x,external:!!x.external,new_tab:!!x.new_tab})),footer},200,PUBLIC_CACHE);
   }
   const pageMatch = p.match(/^\/api\/public\/pages\/([^/]+)$/);
   if (pageMatch) {
     const slug = validateSlug(decodeURIComponent(pageMatch[1]));
     const page = await one(env,"SELECT * FROM cms_pages WHERE slug=? AND status='published' AND published_snapshot IS NOT NULL",slug);
     if (!page) fail(404,"Trang chưa được công bố.");
-    return json({page:await pagePayload(env,page,true)});
+    return json({page:await pagePayload(env,page,true)},200,PUBLIC_CACHE);
   }
   const mediaMatch = p.match(/^\/api\/public\/media\/([^/]+)$/);
   if (mediaMatch) {

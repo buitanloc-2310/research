@@ -36,6 +36,24 @@ test("CMS: public site defaults are persisted in D1", async () => {
   assert(x.d.footer.some(x => x.label === "Sky First Learning Center"));
 });
 
+test("CMS: production-final starter content stays draft until an administrator publishes", async () => {
+  const page = await call("/admin/cms/pages/page-home");
+  assert.equal(page.status, 200);
+  assert.equal(page.d.page.status, "draft");
+  assert.equal(page.d.page.blocks.find(x => x.id === "block-home-hero").data.title, "Từ câu hỏi hôm nay. Đến giải pháp ngày mai.");
+  assert(page.d.page.blocks.some(x => x.id === "block-home-process"));
+  assert.equal((await call("/public/pages/home")).status, 404, "starter migration must never auto-publish");
+});
+
+test("CMS: public configuration endpoints use bounded shared caching", async () => {
+  for (const path of ["/public/site", "/public/settings"]) {
+    const x = await call(path);
+    assert.equal(x.status, 200);
+    assert.match(x.r.headers.get("cache-control") || "", /s-maxage=120/);
+    assert.match(x.r.headers.get("cache-control") || "", /stale-while-revalidate=300/);
+  }
+});
+
 test("CMS: media upload uses R2 and becomes public only when referenced", async () => {
   const bytes = new Uint8Array([137,80,78,71,13,10,26,10,1,2,3,4]);
   const up = await call("/admin/cms/media?name=logo.png&alt=Logo", "POST", bytes, true);

@@ -20,7 +20,7 @@ Source production cho một Cloudflare Pages project gồm public website, login
 | Static output | `public` |
 | Node | `>=22.13.0` |
 
-Không thay D1/R2 ở trên. ID D1 cũ `ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1` không được dùng trong production config.
+Không thay D1/R2 ở trên. Không đưa bất kỳ D1 ID đã nghỉ hưu nào trở lại production config.
 
 ## 2. Cấu trúc
 
