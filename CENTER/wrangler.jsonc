@@ -1,0 +1,34 @@
+{
+  "name": "sfrc",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "vars": {
+    "MODE": "single",
+    "APP_ORIGIN": "https://research.skyfirst.io.vn"
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tt",
+      "database_id": "ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "ttrungtam"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 1 * * *"
+    ]
+  }
+}
