@@ -34,6 +34,7 @@ import {
   DEFAULT_GRANTS,
 } from "./policy.js";
 import { text, validate, transition } from "./domain.js";
+import { queueEmail, adminAlert } from "./notifications.js";
 const json = (data, status = 200, headers = {}) =>
   Response.json(data, {
     status,
@@ -206,6 +207,8 @@ async function createRecord(env, u, kind, b) {
         ),
       );
   }
+  if (["projects", "ethics", "collaborations", "ideas"].includes(kind))
+    await adminAlert(env, `Hồ sơ mới: ${fields.title}`, `${u.name || u.email || "Một thành viên"} vừa tạo hồ sơ ${kind} (${code}).`, `${env.APP_ORIGIN}/#/record/${id}`);
   return record(env, id);
 }
 export async function api(req, env) {
@@ -263,6 +266,7 @@ export async function api(req, env) {
       ),
       audit(env, { id }, "bootstrap", id),
     ]);
+    await queueEmail(env, { userId: id, subject: "Chào mừng đến Sky First Research & Innovation Center", message: "Tài khoản quản trị đầu tiên đã được thiết lập thành công. Bạn có thể đăng nhập và bắt đầu cấu hình Trung tâm.", actionUrl: env.APP_ORIGIN + "/#login", actionLabel: "Đăng nhập" });
     return json({ ok: true }, 201);
   }
   if (p === "/api/login" && method === "POST") {
@@ -321,6 +325,7 @@ export async function api(req, env) {
       audit(env, { id: r.user_id }, "reset_password", r.user_id),
     ]);
     if (!result[0].meta.changes) fail(409, "Liên kết đã sử dụng.");
+    await queueEmail(env, { userId: r.user_id, subject: "Mật khẩu đã được thay đổi", message: "Mật khẩu tài khoản của bạn vừa được đặt lại thành công. Nếu bạn không thực hiện thao tác này, hãy liên hệ quản trị viên ngay.", actionUrl: env.APP_ORIGIN + "/#login", actionLabel: "Đăng nhập" });
     return json({ ok: true });
   }
   if (p === "/api/public/settings") {
@@ -441,6 +446,7 @@ export async function api(req, env) {
       stmt(env, "DELETE FROM sessions WHERE user_id=?", u.id),
       audit(env, u, "password_change", u.id),
     ]);
+    await queueEmail(env, { userId: u.id, subject: "Mật khẩu đã được thay đổi", message: "Mật khẩu tài khoản của bạn vừa được thay đổi. Nếu đây không phải thao tác của bạn, hãy liên hệ quản trị viên ngay.", actionUrl: env.APP_ORIGIN + "/#login" });
     return json({ ok: true }, 200, { "set-cookie": sessionCookie("", 0) });
   }
   if (u.force_change) fail(403, "Bạn cần đổi mật khẩu trước khi sử dụng.");
@@ -917,6 +923,10 @@ export async function api(req, env) {
           ))
         )
           fail(409, "Đã đủ số chỗ.");
+        if (result.meta.changes) {
+          await queueEmail(env, { userId: u.id, subject: `Đăng ký sự kiện thành công: ${r.title}`, message: `Bạn đã đăng ký sự kiện “${r.title}”. Thông tin cập nhật sẽ được gửi qua hệ thống.`, actionUrl: `${env.APP_ORIGIN}/#/record/${r.id}` });
+          await adminAlert(env, `Có đăng ký sự kiện: ${r.title}`, `${u.name || u.email} vừa đăng ký tham gia sự kiện.`, `${env.APP_ORIGIN}/#/record/${r.id}`);
+        }
         return json({ ok: true });
       }
       if (!has(u, "manage") && !(await lead(env, u, r)))
@@ -1033,6 +1043,8 @@ export async function api(req, env) {
           u.id,
           JSON.stringify(answers),
         );
+        await queueEmail(env, { userId: u.id, subject: `Đã ghi nhận phản hồi: ${r.title}`, message: `Trung tâm đã ghi nhận phản hồi của bạn cho biểu mẫu “${r.title}”.`, actionUrl: env.APP_ORIGIN });
+        await adminAlert(env, `Có phản hồi biểu mẫu: ${r.title}`, `${u.name || u.email} vừa gửi một phản hồi mới.`, `${env.APP_ORIGIN}/#/record/${r.id}`);
         return json({ ok: true }, 201);
       }
     }
@@ -1228,6 +1240,7 @@ export async function api(req, env) {
         ),
         audit(env, u, "user_create", id, { role: b.role }),
       ]);
+      await queueEmail(env, { userId: id, subject: "Tài khoản Sky First Research & Innovation Center đã được tạo", message: `Xin chào ${text(b.name,160)}, tài khoản của bạn đã được Trung tâm tạo với vai trò ${ROLE_NAMES[b.role] || b.role}. Vì lý do bảo mật, mật khẩu không được gửi qua email.`, actionUrl: env.APP_ORIGIN + "/#login", actionLabel: "Đăng nhập" });
       return json({ id }, 201);
     }
     if (method === "PATCH") {
@@ -1303,7 +1316,9 @@ export async function api(req, env) {
       ),
       audit(env, u, "reset_link_issued", b.user_id),
     ]);
-    return json({ url: env.APP_ORIGIN + "/#reset/" + t, expires_in: 1800 });
+    const resetUrl = env.APP_ORIGIN + "/#reset/" + t;
+    await queueEmail(env, { userId: b.user_id, subject: "Liên kết đặt lại mật khẩu", message: "Quản trị viên đã tạo liên kết đặt lại mật khẩu cho tài khoản của bạn. Liên kết có hiệu lực 30 phút và chỉ dùng một lần.", actionUrl: resetUrl, actionLabel: "Đặt lại mật khẩu" });
+    return json({ url: resetUrl, expires_in: 1800, emailed: !!env.RESEND_API_KEY });
   }
   if (p === "/api/admin/roles") {
     requirePerm(u, "settings");

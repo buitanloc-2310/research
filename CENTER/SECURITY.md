@@ -37,3 +37,6 @@ Không có antivirus nội dung tệp hoặc chống DDoS cấp ứng dụng chu
 ## Xoay khóa và khôi phục
 
 Để xoay shared secret, triển khai cùng giá trị mới ở Data và App trong cửa sổ bảo trì ngắn; yêu cầu có chữ ký cũ có thể tạm bị từ chối. Không bật cơ chế bỏ qua signature. Nếu mất admin, dùng quyền quản trị Cloudflare có thẩm quyền để tạo quy trình khôi phục được audit; không có mật khẩu cửa hậu.
+
+## Email security
+`RESEND_API_KEY` and `ADMIN_ALERT_EMAIL` are deployment secrets/variables and must not be committed. Transactional mail never contains plaintext passwords, API keys or session tokens. Password-reset links are single-use and expire after 30 minutes. Email delivery uses the D1 outbox with bounded retries; failed deliveries do not roll back the underlying business transaction.

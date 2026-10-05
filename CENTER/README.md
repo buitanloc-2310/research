@@ -178,3 +178,35 @@ Tài liệu Cloudflare tham chiếu khi xây dựng:
 - https://developers.cloudflare.com/d1/worker-api/d1-database/
 - https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
 - https://developers.cloudflare.com/workers/static-assets/binding/
+
+## Cloudflare Pages single-project deployment (account-limited mode)
+
+This package includes a Pages adapter so the existing `research-xcl` Pages project can run the frontend and API together. It does not require a separate Data Worker or `DATA_API_URL`.
+
+Cloudflare Pages settings when the repository project is inside `CENTER`:
+
+- Root directory: `CENTER`
+- Build command: `npm run build`
+- Build output directory: `public`
+- Production variable: `APP_ORIGIN=https://research.skyfirst.io.vn`
+- D1 binding: `DB` -> database `tt` (`ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1`)
+- R2 binding: `STORAGE` -> bucket `ttrungtam`
+
+`API_SHARED_SECRET` is not required for this single Pages deployment because the Pages Function calls the API handler directly rather than crossing accounts over HTTPS. It may be removed from this Pages project after migration to this mode. `RESEND_API_KEY` is harmless but email delivery is not enabled until a real email provider adapter is implemented.
+
+Before production use, apply `migrations/0001_initial.sql` to D1 `tt`. Then redeploy the Pages project and attach the custom domain `research.skyfirst.io.vn`.
+
+Note: Pages does not run the Worker cron trigger from `wrangler.jsonc`. The web/API application works without it, but scheduled expiry/cleanup/deadline jobs need a separate scheduled mechanism later if those automations are required.
+
+## Transactional email (Resend)
+Production email is integrated through the existing D1 outbox. The default sender is `Sky First Research & Innovation Center <research@skyfirst.io.vn>` and reply-to is `research@skyfirst.io.vn`.
+
+Required Cloudflare Pages settings:
+- Secret `RESEND_API_KEY`: Resend API key. Never commit it.
+- Variable `EMAIL_FROM`: `Sky First Research & Innovation Center <research@skyfirst.io.vn>`
+- Variable `EMAIL_REPLY_TO`: `research@skyfirst.io.vn`
+- Variable/Secret `ADMIN_ALERT_EMAIL`: private inbox that should receive important administrative alerts.
+
+Before production sending, verify `skyfirst.io.vn` (or the exact sending domain) in Resend and publish the DNS records Resend provides. Without domain verification, Resend can reject the sender even when the API key is valid.
+
+Email coverage includes in-app notifications (assignment, review and record notifications), account creation, password reset/change security notices, event registration, form submissions and important admin alerts. Messages are written to `outbox`, delivered through Resend, retried up to five attempts, and failures remain auditable in D1. Passwords and secrets are never emailed.

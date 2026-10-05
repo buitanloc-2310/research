@@ -11,6 +11,7 @@ import {
   fail,
 } from "./security.js";
 import { run } from "./db.js";
+import { flushOutbox } from "./notifications.js";
 export async function fetchHandler(request, env) {
   try {
     const url = new URL(request.url);
@@ -66,6 +67,9 @@ export async function fetchHandler(request, env) {
     const response = pub
       ? await publicFile(request, env, pub[1])
       : await api(request, env);
+    // Transactional email is flushed after the business transaction succeeds.
+    const delivery = flushOutbox(env).catch((e) => console.error("email_flush", String(e.message).slice(0,200)));
+    if (env.WAIT_UNTIL) env.WAIT_UNTIL(delivery); else await delivery;
     return secure(response);
   } catch (e) {
     const status =
@@ -106,5 +110,6 @@ export default {
     await env.DB.prepare(
       `INSERT INTO notifications(id,user_id,title,record_id) SELECT lower(hex(randomblob(16))),owner_id,'Sắp đến hạn: '||title,id FROM records r WHERE deleted=0 AND kind IN ('tasks','milestones') AND status NOT IN ('completed','archived') AND json_extract(data,'$.due')=date('now','+1 day') AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.record_id=r.id AND n.title='Sắp đến hạn: '||r.title AND date(n.created_at)=date('now'))`,
     ).run();
+    await flushOutbox(env, 50);
   },
 };
