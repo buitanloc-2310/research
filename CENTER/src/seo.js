@@ -90,7 +90,7 @@ export async function seo(request, env, requestApi) {
     .replace(/<title>.*?<\/title>/, `<title>${e(title)}</title>`)
     .replace(
       "</head>",
-      `<link rel="canonical" href="${e(url.origin + url.pathname)}"><meta property="og:url" content="${e(url.origin + url.pathname)}"><meta property="og:image" content="${e(url.origin)}/mark.svg"></head>`,
+      `<link rel="canonical" href="${e(url.origin + url.pathname)}"><meta property="og:url" content="${e(url.origin + url.pathname)}"><meta property="og:image" content="${e(url.origin)}/sky-first-logo.png"></head>`,
     )
     .replace(
       /<meta name="description" content="[^"]*">/,

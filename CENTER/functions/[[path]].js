@@ -1,9 +1,13 @@
 import { fetchHandler } from "../src/worker.js";
 
 // Cloudflare Pages single-project adapter.
-// Pages serves static files from /public; this Function handles API/SSR routes
-// and binds D1/R2 directly from the Pages project's Bindings settings.
+// Static assets are always served directly by Pages. API and document routes
+// pass through the application worker so D1/R2 and SEO remain available.
 export function onRequest(context) {
+  const url = new URL(context.request.url);
+  const isStatic = /\.(?:css|js|mjs|png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|map|txt|xml)$/i.test(url.pathname);
+  if (isStatic) return context.next();
+
   return fetchHandler(context.request, {
     ...context.env,
     MODE: "single",

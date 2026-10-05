@@ -210,3 +210,13 @@ Required Cloudflare Pages settings:
 Before production sending, verify `skyfirst.io.vn` (or the exact sending domain) in Resend and publish the DNS records Resend provides. Without domain verification, Resend can reject the sender even when the API key is valid.
 
 Email coverage includes in-app notifications (assignment, review and record notifications), account creation, password reset/change security notices, event registration, form submissions and important admin alerts. Messages are written to `outbox`, delivered through Resend, retried up to five attempts, and failures remain auditable in D1. Passwords and secrets are never emailed.
+
+## Cloudflare Pages repository layout (production)
+The delivery ZIP is intentionally wrapped in a single top-level `CENTER/` directory.
+If the Git repository contains that same `CENTER/` directory, configure Cloudflare Pages with:
+- Root directory: `CENTER`
+- Build command: `npm run build`
+- Build output directory: `public`
+
+The Pages Function explicitly bypasses static assets (`.css`, `.js`, images, fonts, etc.) to prevent the blank-page failure mode where the document loads but no frontend resources are requested.
+The official SKY FIRST logo is stored at `public/sky-first-logo.png` and is used across public navigation, authentication, workspace/sidebar and social preview metadata.
