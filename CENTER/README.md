@@ -10,7 +10,7 @@ Bản hoàn thiện trực tiếp từ source `PAGES-EMAIL-LOGO-FIXED`, dành ch
 | Domain / APP_ORIGIN | `https://research.skyfirst.io.vn` |
 | D1 binding | `DB` |
 | D1 database | `tt` |
-| D1 database ID | `ddcc0aa9-cbd3-4a7c-ad9d-dc226456eef1` |
+| D1 database ID | `0a75531f-b227-4a8b-bc26-dda1cc9a0004` |
 | R2 binding / bucket | `STORAGE` / `ttrungtam` |
 | Build command | `npm run build` |
 | Build output | `public` |
