@@ -126,6 +126,17 @@ async function initRoles(env) {
       );
   await env.DB.batch(grants);
 }
+async function firstTimeSetupState(env) {
+  const state = await one(
+    env,
+    `SELECT
+       EXISTS(SELECT 1 FROM settings WHERE key='initialized') AS initialized,
+       EXISTS(SELECT 1 FROM user_roles WHERE role='system_admin') AS root_admin`,
+  );
+  const initialized = Boolean(state?.initialized),
+    rootAdmin = Boolean(state?.root_admin);
+  return { initialized, rootAdmin, required: !initialized && !rootAdmin };
+}
 async function canRead(env, u, r) {
   if (!(await view(env, u, r))) fail(403, "Bạn không có quyền xem hồ sơ.");
 }
@@ -242,44 +253,53 @@ export async function api(req, env) {
   if (!env.DB || typeof env.DB.prepare !== "function") fail(503, "Cơ sở dữ liệu chưa được cấu hình.");
   const cmsPublic = await publicCms(req, env, p);
   if (cmsPublic) return cmsPublic;
-  if (p === "/api/setup" && method === "GET")
-    return json({
-      required: !(await one(
-        env,
-        "SELECT 1 FROM settings WHERE key='initialized'",
-      )),
-    });
+  if (p === "/api/setup" && method === "GET") {
+    const state = await firstTimeSetupState(env);
+    return json({ required: state.required });
+  }
   if (p === "/api/setup" && method === "POST") {
     await rate(env, "setup:" + ip, 5);
+    const state = await firstTimeSetupState(env);
+    if (!state.required) fail(409, "Hệ thống đã được khởi tạo.");
+    if (!env.SETUP_SECRET)
+      fail(503, "First-time Setup chưa được cấu hình trên máy chủ.");
     const b = await body(req);
-    if (!env.SETUP_SECRET || !equal(b.secret, env.SETUP_SECRET))
-      fail(403, "Mã thiết lập không đúng.");
-    if (await one(env, "SELECT 1 FROM settings WHERE key='initialized'"))
-      fail(409, "Hệ thống đã thiết lập.");
-    const email = text(b.email, 200).toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !text(b.name, 160))
-      fail(400, "Tên hoặc email không hợp lệ.");
+    if (!equal(b.secret, env.SETUP_SECRET)) fail(403, "SETUP_SECRET không đúng.");
+    if (b.password !== b.confirm_password)
+      fail(400, "Mật khẩu xác nhận không khớp.");
+    const email = text(b.email, 200).toLowerCase(),
+      name = text(b.name, 160);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !name)
+      fail(400, "Họ tên hoặc email không hợp lệ.");
+    if (await one(env, "SELECT 1 FROM users WHERE email=? LIMIT 1", email))
+      fail(409, "Email này đã được sử dụng.");
     await initRoles(env);
     const id = uuid(),
       pw = await passwordHash(b.password);
-    await env.DB.batch([
-      stmt(env, "INSERT INTO settings(key,value) VALUES('initialized','1')"),
-      stmt(
-        env,
-        "INSERT INTO users(id,email,name,password,role) VALUES(?,?,?,?,'admin')",
-        id,
-        email,
-        text(b.name, 160),
-        pw,
-      ),
-      stmt(
-        env,
-        "INSERT INTO user_roles(user_id,role) VALUES(?,'system_admin')",
-        id,
-      ),
-      audit(env, { id }, "bootstrap", id),
-    ]);
-    await queueEmail(env, { userId: id, subject: "Chào mừng đến Sky First Research & Innovation Center", message: "Tài khoản quản trị đầu tiên đã được thiết lập thành công. Bạn có thể đăng nhập và bắt đầu cấu hình Trung tâm.", actionUrl: env.APP_ORIGIN + "/#login", actionLabel: "Đăng nhập" });
+    try {
+      await env.DB.batch([
+        stmt(env, "INSERT INTO settings(key,value) VALUES('initialized','1')"),
+        stmt(
+          env,
+          "INSERT INTO users(id,email,name,password,role) VALUES(?,?,?,?,'admin')",
+          id,
+          email,
+          name,
+          pw,
+        ),
+        stmt(
+          env,
+          "INSERT INTO user_roles(user_id,role) VALUES(?,'system_admin')",
+          id,
+        ),
+        audit(env, { id }, "first_time_setup", id, { role: "system_admin" }),
+      ]);
+    } catch (error) {
+      const current = await firstTimeSetupState(env).catch(() => null);
+      if (current && !current.required) fail(409, "Hệ thống đã được khởi tạo.");
+      throw error;
+    }
+    await queueEmail(env, { userId: id, subject: "Chào mừng đến Sky First Research & Innovation Center", message: "Root Admin đầu tiên đã được thiết lập thành công. Bạn có thể đăng nhập và bắt đầu cấu hình Trung tâm.", actionUrl: env.APP_ORIGIN + "/#login", actionLabel: "Đăng nhập" });
     return json({ ok: true }, 201);
   }
   if (p === "/api/login" && method === "POST") {

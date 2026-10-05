@@ -12,6 +12,7 @@ export const hash = async (value) =>
     ),
   );
 export const random = () => hex(crypto.getRandomValues(new Uint8Array(32)));
+export const PASSWORD_PBKDF2_ITERATIONS = 100000;
 export function fail(status, message) {
   throw Object.assign(new Error(message), { status });
 }
@@ -33,7 +34,7 @@ export async function passwordHash(password, salt = random()) {
     {
       name: "PBKDF2",
       hash: "SHA-256",
-      iterations: 100000,
+      iterations: PASSWORD_PBKDF2_ITERATIONS,
       salt: enc.encode(salt),
     },
     k,

@@ -1,11 +1,11 @@
 # API & mô hình dữ liệu
 
-API version hiện tại: `/api/v1`. Alias `/api` được giữ cho các script nội bộ. JSON UTF-8; lỗi có `{error, request_id}` và HTTP status tương ứng. Authentication bằng cookie `__Host-sfrc`. Requests ghi phải có `Origin` đúng `APP_ORIGIN` và header `X-Requested-With: SFRC`. Không gửi shared secret từ trình duyệt.
+API version hiện tại: `/api/v1`. Alias `/api` được giữ cho các script nội bộ. JSON UTF-8; lỗi có `{error, request_id}` và HTTP status tương ứng. Authentication bằng cookie `__Host-sfrc`. Requests ghi phải có `Origin` đúng `APP_ORIGIN` và header `X-Requested-With: SFRC`. Application secrets không được trả về frontend. Ngoại lệ duy nhất là giá trị `SETUP_SECRET` do người vận hành tự nhập trên First-time Setup và gửi qua HTTPS để máy chủ đối chiếu; giá trị này không được lưu vào D1 hoặc source.
 
 | Endpoint                               | Method             | Nội dung                                                     |
 | -------------------------------------- | ------------------ | ------------------------------------------------------------ |
 | `/health`                              | GET                | Phiên bản API                                                |
-| `/setup`                               | GET, POST          | Trạng thái bootstrap / tạo admin đầu tiên bằng secret        |
+| `/setup`                               | GET, POST          | First-time Setup / tạo Root Admin đầu tiên bằng Cloudflare `SETUP_SECRET` |
 | `/login`, `/logout`                    | POST               | Tạo / kết thúc phiên                                         |
 | `/me`                                  | GET                | Người dùng và quyền hiện hành                                |
 | `/password`, `/reset`                  | POST               | Đổi mật khẩu / sử dụng reset token                           |
@@ -44,6 +44,15 @@ API version hiện tại: `/api/v1`. Alias `/api` được giữ cho các script
 | `/admin/audit`                         | GET                | Audit phân trang 100 hàng                                    |
 | `/admin/storage`                       | GET                | Metadata storage, max 300 mục gần đây                        |
 | `/admin/export`                        | GET                | Danh mục bảng hoặc trang JSON 500 hàng                       |
+
+
+### First-time Setup
+
+- `GET /api/v1/setup` → `{ "required": true|false }`; không trả secret hoặc thông tin tài khoản.
+- Setup chỉ `required=true` khi chưa có marker `settings.initialized` **và** chưa có role assignment `system_admin`.
+- `POST /api/v1/setup` yêu cầu `{name,email,password,confirm_password,secret}`. `secret` được so sánh server-side với Cloudflare `SETUP_SECRET`.
+- Password dùng PBKDF2-SHA-256, 100.000 iterations, salt riêng. Thành công tạo user + `system_admin`, marker `initialized`, audit `first_time_setup`, sau đó endpoint setup bị khóa.
+- Nếu hệ thống đã từng khởi tạo, POST trả 409 và giao diện `/#setup` tự chuyển về Login.
 
 ## Hồ sơ
 

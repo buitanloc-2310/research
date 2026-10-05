@@ -389,23 +389,60 @@ async function publicPage() {
 }
 
 async function loginPage(type, token) {
-  const setup = type === "setup", reset = type === "reset";
+  const reset = type === "reset";
+  let setup = type === "setup";
+  if (!reset) {
+    const setupState = await api("/setup");
+    if (type === "login" && setupState.required) {
+      location.hash = "setup";
+      return;
+    }
+    if (setup && !setupState.required) {
+      location.hash = "login";
+      return;
+    }
+    setup = setupState.required;
+  }
   const site = await loadPublicSite();
   const st = site?.settings || {};
-  app.innerHTML = `<div class="auth"><div class="auth-shell"><section class="auth-identity"><a class="brand" href="/"><img src="${esc(mediaSrc(st.logo_media_id))}" alt="Logo Trung tâm"><span>SKY FIRST<small>RESEARCH & INNOVATION CENTER</small></span></a><div class="auth-copy"><div class="eyebrow">TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST</div><h1>Nghiên cứu.<br>Đổi mới.<br><em>Tạo tác động.</em></h1><p>${esc(st.tagline || "Một không gian nghiên cứu hiện đại để kết nối tri thức, con người và những giải pháp có trách nhiệm.")}</p><div class="auth-principles"><span>Research</span><span>Innovation</span><span>Knowledge</span><span>Impact</span></div></div></section><section class="auth-form-wrap"><form id="authForm" class="panel"><div class="auth-form-head"><img src="${esc(mediaSrc(st.logo_media_id))}" alt=""><div><span class="eyebrow">SKY FIRST R&I CENTER</span><h2>${setup ? "Thiết lập lần đầu" : reset ? "Đặt lại mật khẩu" : "Chào mừng trở lại"}</h2></div></div><p class="muted">${setup ? "Tạo quản trị viên đầu tiên bằng mã thiết lập bảo mật." : reset ? "Liên kết đặt lại chỉ dùng một lần và có thời hạn." : "Đăng nhập bằng tài khoản được Trung tâm cấp để vào không gian nghiên cứu."}</p>${setup ? '<label>Họ và tên<input name="name" required autocomplete="name"></label><label>Mã thiết lập<input name="secret" type="password" required autocomplete="off"></label>' : ""}${!reset ? '<label>Email<input name="email" type="email" autocomplete="username" required></label>' : ""}<label>Mật khẩu<div class="password-field"><input name="password" type="password" minlength="12" maxlength="200" autocomplete="${setup || reset ? "new-password" : "current-password"}" required><button type="button" class="password-toggle" aria-label="Hiện mật khẩu" aria-pressed="false">Hiện</button></div></label><button class="button full" type="submit">${setup ? "Tạo quản trị viên" : reset ? "Lưu mật khẩu" : "Đăng nhập"} <span aria-hidden="true">→</span></button>${!setup && !reset ? '<div class="auth-help"><b>Quên mật khẩu?</b><span>Liên hệ quản trị viên để xác minh và nhận liên kết đặt lại an toàn.</span></div>' : ""}<a class="back-link" href="/">← Về website Trung tâm</a></form></section></div></div>`;
-  const passwordToggle = $(".password-toggle");
-  if (passwordToggle) passwordToggle.onclick = () => {
-    const input = $("#authForm input[name=password]");
-    const show = input.type === "password";
-    input.type = show ? "text" : "password";
-    passwordToggle.textContent = show ? "Ẩn" : "Hiện";
-    passwordToggle.setAttribute("aria-label", show ? "Ẩn mật khẩu" : "Hiện mật khẩu");
-    passwordToggle.setAttribute("aria-pressed", String(show));
-  };
+  const setupFields = setup
+    ? '<label>Họ và tên<input name="name" required maxlength="160" autocomplete="name"></label><label>Email<input name="email" type="email" maxlength="200" autocomplete="username" required></label><label>Mật khẩu<div class="password-field"><input name="password" type="password" minlength="12" maxlength="200" autocomplete="new-password" required><button type="button" class="password-toggle" data-password-toggle="password" aria-label="Hiện mật khẩu" aria-pressed="false">Hiện</button></div></label><label>Xác nhận mật khẩu<div class="password-field"><input name="confirm_password" type="password" minlength="12" maxlength="200" autocomplete="new-password" required><button type="button" class="password-toggle" data-password-toggle="confirm_password" aria-label="Hiện mật khẩu xác nhận" aria-pressed="false">Hiện</button></div></label><label>SETUP_SECRET<div class="password-field"><input name="secret" type="password" required autocomplete="off" spellcheck="false"><button type="button" class="password-toggle" data-password-toggle="secret" aria-label="Hiện SETUP_SECRET" aria-pressed="false">Hiện</button></div></label><div class="setup-note"><b>Khởi tạo một lần</b><span>SETUP_SECRET chỉ được kiểm tra ở máy chủ. Sau khi Root Admin được tạo, màn hình này tự khóa và không thể dùng lại.</span></div>'
+    : "";
+  const loginFields = !setup && !reset
+    ? '<label>Email<input name="email" type="email" maxlength="200" autocomplete="username" required></label><label>Mật khẩu<div class="password-field"><input name="password" type="password" minlength="12" maxlength="200" autocomplete="current-password" required><button type="button" class="password-toggle" data-password-toggle="password" aria-label="Hiện mật khẩu" aria-pressed="false">Hiện</button></div></label>'
+    : "";
+  const resetFields = reset
+    ? '<label>Mật khẩu mới<div class="password-field"><input name="password" type="password" minlength="12" maxlength="200" autocomplete="new-password" required><button type="button" class="password-toggle" data-password-toggle="password" aria-label="Hiện mật khẩu" aria-pressed="false">Hiện</button></div></label>'
+    : "";
+  app.innerHTML = `<div class="auth"><div class="auth-shell"><section class="auth-identity"><a class="brand" href="/"><img src="${esc(mediaSrc(st.logo_media_id))}" alt="Logo Trung tâm"><span>SKY FIRST<small>RESEARCH & INNOVATION CENTER</small></span></a><div class="auth-copy"><div class="eyebrow">TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST</div><h1>Nghiên cứu.<br>Đổi mới.<br><em>Tạo tác động.</em></h1><p>${esc(st.tagline || "Một không gian nghiên cứu hiện đại để kết nối tri thức, con người và những giải pháp có trách nhiệm.")}</p><div class="auth-principles"><span>Research</span><span>Innovation</span><span>Knowledge</span><span>Impact</span></div></div></section><section class="auth-form-wrap"><form id="authForm" class="panel"><div class="auth-form-head"><img src="${esc(mediaSrc(st.logo_media_id))}" alt=""><div><span class="eyebrow">SKY FIRST R&I CENTER</span><h2>${setup ? "Khởi tạo hệ thống" : reset ? "Đặt lại mật khẩu" : "Chào mừng trở lại"}</h2></div></div><p class="muted">${setup ? "Tạo Root Admin đầu tiên để đưa hệ thống vào vận hành." : reset ? "Liên kết đặt lại chỉ dùng một lần và có thời hạn." : "Đăng nhập bằng tài khoản được Trung tâm cấp để vào không gian nghiên cứu."}</p>${setupFields}${loginFields}${resetFields}<button class="button full" type="submit">${setup ? "Khởi tạo Root Admin" : reset ? "Lưu mật khẩu" : "Đăng nhập"} <span aria-hidden="true">→</span></button>${!setup && !reset ? '<div class="auth-help"><b>Quên mật khẩu?</b><span>Liên hệ quản trị viên để xác minh và nhận liên kết đặt lại an toàn.</span></div>' : ""}<a class="back-link" href="/">← Về website Trung tâm</a></form></section></div></div>`;
+  $$('[data-password-toggle]').forEach((button) => {
+    button.onclick = () => {
+      const input = $(`#authForm input[name="${button.dataset.passwordToggle}"]`);
+      if (!input) return;
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      button.textContent = show ? "Ẩn" : "Hiện";
+      button.setAttribute("aria-pressed", String(show));
+      button.setAttribute("aria-label", `${show ? "Ẩn" : "Hiện"} ${button.dataset.passwordToggle === "secret" ? "SETUP_SECRET" : "mật khẩu"}`);
+    };
+  });
   formSubmit("#authForm", async (b) => {
-    await send(setup ? "/setup" : reset ? "/reset" : "/login", reset ? { token, password: b.password } : b);
-    if (setup || reset) { toast("Thành công. Hãy đăng nhập."); nav("login"); }
-    else { me = (await api("/me")).user; nav("w/dashboard"); }
+    if (setup && b.password !== b.confirm_password)
+      throw Error("Mật khẩu xác nhận không khớp.");
+    await send(
+      setup ? "/setup" : reset ? "/reset" : "/login",
+      reset ? { token, password: b.password } : b,
+    );
+    if (setup) {
+      toast("Khởi tạo Root Admin thành công. Hãy đăng nhập.");
+      location.hash = "login";
+    } else if (reset) {
+      toast("Đã đặt lại mật khẩu. Hãy đăng nhập.");
+      location.hash = "login";
+    } else {
+      me = (await api("/me")).user;
+      nav("w/dashboard");
+    }
   });
 }
 async function dashboard() {

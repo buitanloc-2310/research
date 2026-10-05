@@ -22,7 +22,7 @@
 1. Dùng DB/bucket production riêng, chưa seed demo, migration thành công.
 2. APP_ORIGIN khớp domain chính; HTTPS hoạt động.
 3. Shared secret đủ ngẫu nhiên, giống ở A/B, không có trong source/JS public.
-4. Bootstrap admin thành công, xóa SETUP_SECRET nếu không dùng nữa.
+4. First-time Setup tạo Root Admin thành công, kiểm tra `/#setup` tự quay về Login; sau đó có thể xóa `SETUP_SECRET` khỏi production.
 5. Thử quyền researcher/reviewer/finance và một tài khoản bị khóa trên staging.
 6. Thử upload/download, file private từ tài khoản không được cấp quyền phải thất bại.
 7. Thử end-to-end review → approve → ethics → start → acceptance → publish trên staging.
@@ -48,3 +48,8 @@ Website CMS is not a separate trust boundary: Admin CMS routes require an authen
 `/api/v1/public/settings` and `/api/v1/public/site` only expose public presentation/contact settings. Resend/setup/maintenance/API secrets never belong in these tables or public responses.
 
 CSP keeps `default-src 'self'` and narrowly permits Cloudflare Analytics at `static.cloudflareinsights.com` (`script-src`) and `cloudflareinsights.com` (`connect-src`). No wildcard script source is used.
+
+
+## First-time Setup hardening
+
+`GET /api/v1/setup` chỉ trả boolean `required`; không bao giờ trả `SETUP_SECRET`. Setup chỉ mở khi chưa có marker `initialized` **và** chưa có bất kỳ `system_admin` nào. `POST /api/v1/setup` rate-limit theo IP, yêu cầu same-origin + `X-Requested-With`, xác thực Cloudflare `SETUP_SECRET`, bắt buộc password confirmation, PBKDF2-SHA-256 100.000 iterations, tạo duy nhất Root Admin và ghi audit `first_time_setup`. Một hệ thống đã từng khởi tạo không tự mở bootstrap trở lại nếu Root Admin bị xóa ngoài quy trình; đây là chủ đích chống account takeover và cần incident recovery có kiểm soát.

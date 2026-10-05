@@ -1941,6 +1941,10 @@ body { background:#fff; }
 .auth-form-wrap input { min-height:44px; border-color:#d5e3ef; background:#fbfdff; }
 .password-field { position:relative; margin-top:6px; }.password-field input { padding-right:62px; margin:0; }.password-toggle { position:absolute; right:5px; top:50%; transform:translateY(-50%); padding:6px 9px; border:0; background:transparent; color:#3f668c; font-size:10px; }
 .auth-help { border-color:#dbeaf7; background:#f5f9fd; }.back-link { display:inline-flex; margin-top:4px; }
+.setup-note { display:grid; gap:4px; padding:12px 14px; margin:-2px 0 18px; border:1px solid #dbeaf7; border-radius:10px; background:#f5f9fd; color:#315a7d; font-size:11px; line-height:1.55; }
+.setup-note b { color:#123b63; font-size:12px; }
+.dark .setup-note { background:#0d2748; border-color:#1f446d; color:#9fbbd8; }
+.dark .setup-note b { color:#eef6ff; }
 
 /* Dark mode keeps information architecture but avoids neon/high saturation */
 .dark body { background:#07152f; }

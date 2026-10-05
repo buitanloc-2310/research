@@ -151,3 +151,13 @@ Site Settings, menu, footer, page blocks, SEO và media vẫn quản trị từ 
 ## J. Known limitations / kết luận
 
 Source đã hoàn thiện vòng UX/CMS này và các test có thể chạy trong sandbox đều PASS. Tuy nhiên theo tiêu chí nghiệm thu đã đặt, **không gắn nhãn PRODUCTION READY** cho tới khi full Wrangler Pages build, browser E2E và Cloudflare D1/R2/Resend production được verify trên môi trường có dependency/credentials phù hợp.
+
+## First-time Setup — production bootstrap
+
+- `/#login` calls `GET /api/v1/setup`; on a fresh database it automatically routes to `/#setup`.
+- Setup form uses the same Login design system and requires: full name, email, password, password confirmation, and `SETUP_SECRET`.
+- `SETUP_SECRET` is read only from the server-side Cloudflare environment; its value is never returned by an API or embedded in frontend/source config.
+- Backend only permits setup when both the immutable initialization marker is absent and no `system_admin` (Root Admin) role assignment exists.
+- Password hashing uses PBKDF2-SHA-256 at exactly 100,000 iterations for current runtime compatibility.
+- Successful setup creates the first user, assigns `system_admin`, writes audit action `first_time_setup`, queues the welcome email, and permanently disables bootstrap.
+- Direct `/#setup` after initialization automatically returns to Login. If Root Admin is removed outside the supported workflow, bootstrap remains locked and requires controlled incident recovery rather than reopening an account-takeover path.

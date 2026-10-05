@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { database, memoryStorage } from "../scripts/runtime.mjs";
 import { seed } from "../scripts/seed.mjs";
 import worker, { fetchHandler } from "../src/worker.js";
-import { hmac, hash, canonical, uuid } from "../src/security.js";
+import { hmac, hash, canonical, uuid, PASSWORD_PBKDF2_ITERATIONS } from "../src/security.js";
 const { DB, sqlite } = database(),
   password = crypto.randomUUID();
 await seed(DB, password);
@@ -56,9 +56,12 @@ async function action(id, action, role = "manager") {
     role,
   );
 }
-test("bootstrap: setup only once and requires secret", async () => {
+test("first-time setup: detects fresh install, creates one Root Admin, then locks", async () => {
+  assert.equal(PASSWORD_PBKDF2_ITERATIONS, 100000);
   const empty = database();
   const ev = { ...env, DB: empty.DB, SETUP_SECRET: uuid() };
+  const status = async () =>
+    fetchHandler(new Request(env.APP_ORIGIN + "/api/v1/setup"), ev);
   const invoke = async (b) =>
     fetchHandler(
       new Request(env.APP_ORIGIN + "/api/v1/setup", {
@@ -68,15 +71,28 @@ test("bootstrap: setup only once and requires secret", async () => {
       }),
       ev,
     );
+  assert.deepEqual(await (await status()).json(), { required: true });
   assert.equal((await invoke({ secret: "bad" })).status, 403);
+  const password = uuid();
   const b = {
     secret: ev.SETUP_SECRET,
-    email: "new@example.test",
-    name: "Admin",
-    password: uuid(),
+    email: "root@example.test",
+    name: "Root Admin",
+    password,
+    confirm_password: password,
   };
+  assert.equal((await invoke({ ...b, confirm_password: password + "x" })).status, 400);
   assert.equal((await invoke(b)).status, 201);
+  assert.deepEqual(await (await status()).json(), { required: false });
+  assert.equal(empty.sqlite.prepare("SELECT count(*) n FROM users").get().n, 1);
+  assert.equal(empty.sqlite.prepare("SELECT role FROM users LIMIT 1").get().role, "admin");
+  assert.equal(empty.sqlite.prepare("SELECT role FROM user_roles LIMIT 1").get().role, "system_admin");
+  assert.equal(empty.sqlite.prepare("SELECT count(*) n FROM audit WHERE action='first_time_setup'").get().n, 1);
+  assert.notEqual(empty.sqlite.prepare("SELECT password FROM users LIMIT 1").get().password, password);
   assert.equal((await invoke(b)).status, 409);
+  empty.sqlite.exec("DELETE FROM settings WHERE key='initialized'");
+  assert.deepEqual(await (await status()).json(), { required: false });
+  assert.equal((await invoke({ ...b, email: "second@example.test" })).status, 409);
 });
 test("public SEO: content rendered and metadata escaped", async () => {
   await DB.prepare("UPDATE records SET title=? WHERE id='demo-publications'")

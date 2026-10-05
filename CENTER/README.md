@@ -116,7 +116,7 @@ Non-secret đã cấu hình trong `wrangler.jsonc`:
 
 Secrets/variables cần đặt server-side trong Cloudflare Production tùy chức năng:
 
-- `SETUP_SECRET` — chỉ bootstrap lần đầu; xóa sau khi đã có admin.
+- `SETUP_SECRET` — Cloudflare secret dùng duy nhất cho First-time Setup. Frontend không nhận giá trị này; sau khi Root Admin được tạo, API setup tự khóa. Có thể xóa secret khỏi production sau khi khởi tạo thành công.
 - `RESEND_API_KEY` — gửi email thật; tuyệt đối không đưa frontend/Git/ZIP.
 - `MAINTENANCE_SECRET` — nếu dùng external scheduler cho maintenance/outbox.
 - `ADMIN_ALERT_EMAIL` — tùy chọn hộp thư nhận cảnh báo.
@@ -154,3 +154,10 @@ Không có Cloudflare production logs/database access trong phiên sửa source 
 - Error nội bộ log server-side; client chỉ nhận thông báo an toàn + request ID.
 
 Xem thêm `SECURITY.md`, `API.md`, `VALIDATION.md`, `FINAL_ACCEPTANCE.md`.
+
+
+## 11. First-time Setup
+
+Khi chưa có marker `initialized` và chưa tồn tại tài khoản mang role `system_admin`, `/#login` tự kiểm tra `GET /api/v1/setup` rồi chuyển sang `/#setup`. Màn hình setup yêu cầu họ tên, email, mật khẩu, xác nhận mật khẩu và `SETUP_SECRET`. `SETUP_SECRET` chỉ được đối chiếu server-side với Cloudflare secret. Mật khẩu được hash bằng PBKDF2-SHA-256 với 100.000 iterations. Sau khi tạo Root Admin + audit log thành công, setup bị khóa vĩnh viễn bởi marker khởi tạo và sự tồn tại của Root Admin; truy cập trực tiếp `/#setup` sẽ trở lại Login.
+
+Production secret nên được đặt bằng Cloudflare secret management, không đặt trong `vars`, source, `.env` commit hoặc frontend.
