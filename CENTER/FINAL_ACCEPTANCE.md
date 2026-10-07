@@ -267,3 +267,17 @@ Không đưa các secret trên vào frontend/ZIP/Git.
 Source V3 đã đạt PASS cho automated Node tests, D1-compatible CMS persistence tests, setup/rate-limit regressions, source/config build validation và local HTTP smoke. Full Wrangler build, browser E2E và remote Cloudflare/Resend vẫn chưa xác minh được trong sandbox này.
 
 **Kết luận:** không tự gắn nhãn `PRODUCTION READY` trong báo cáo này cho đến khi các mục NOT VERIFIED bắt buộc phía production được chạy và PASS trên CI/Cloudflare thực tế.
+
+## V4 final audit — 2026-10-07
+
+- Implemented V4 public technology/editorial layer while preserving the existing Cloudflare/D1/R2/Auth/CMS architecture.
+- Public fallback navigation now follows six spaces: Trung tâm; Nghiên cứu; Con người & Tri thức; Đổi mới; Hoạt động; Kết nối, with second-level destinations.
+- Header public login CTA removed. Workspace access is intentionally de-emphasized in the footer.
+- Added 18-field research/interest taxonomy presentation, Research Journey, People × Knowledge relationship presentation, richer zero-data knowledge pages, and editorial fallback pages.
+- Added technology visual layer, orbital motion, pointer glow, reveal motion, responsive adaptations, dark surfaces and prefers-reduced-motion handling.
+- No new D1 migration. No database reset. No new D1/R2 resource.
+- Automated test suite: PASS — 77/77, 0 failed, 0 skipped.
+- `node --check public/app.js`: PASS.
+- `node scripts/build.mjs`: PASS.
+- Full Wrangler Pages build: NOT VERIFIED — Wrangler dependency is not installed in this execution environment.
+- Remote production D1/R2/Resend and deployed-browser E2E: NOT VERIFIED — no production credentials/deployment session used.
