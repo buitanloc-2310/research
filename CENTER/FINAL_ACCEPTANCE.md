@@ -1,283 +1,95 @@
-# FINAL ACCEPTANCE — RESEARCH CLOUD V3 ULTIMATE
+# FINAL ACCEPTANCE — SKY FIRST RESEARCH DIGITAL CAMPUS V5
 
-**Ngày audit/sửa:** 05/10/2026  
-**Hệ thống:** TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST  
-**English:** SKY FIRST RESEARCH & INNOVATION CENTER  
-**Production:** `https://research.skyfirst.io.vn`
+**Version:** 5.0.0 · final upgrade pass 2  
+**Source base:** `research-main (1).zip` / existing Cloudflare Pages + Functions source  
+**Date:** 07/10/2026  
+**Production target:** `https://research.skyfirst.io.vn`
 
-> Báo cáo này chỉ đánh dấu PASS cho kiểm tra thực sự đã chạy trong môi trường bàn giao. Phần phụ thuộc Cloudflare production, provider secret hoặc browser runtime không khả dụng được ghi **NOT VERIFIED**.
+> This report records only checks actually executed in the local source workspace. Remote Cloudflare, R2 and email checks remain `NOT VERIFIED` unless explicitly listed as PASS.
 
-## A. Source audit / kiến trúc thực tế
+## 1. Architecture and preservation
 
-Source tiếp tục trên kiến trúc hiện hữu, không rebuild project và không đổi stack:
+- Frontend remains vanilla ES modules + CSS in `public/`; no framework or database replacement.
+- Cloudflare Pages adapter remains in `functions/[[path]].js` and `src/worker.js`.
+- D1, R2, Auth, Session, RBAC, Audit, CMS, revisions, outbox and existing Research modules are preserved.
+- Migrations remain `0001` through `0006`; no new migration was required for V5.
+- No `DROP`, database reset, credential hardcoding, fake research records, fake DOI/ORCID, or AI/chatbot dependency was added.
+- Production bindings remain `DB → tt`, `STORAGE → ttrungtam`, `APP_ORIGIN=https://research.skyfirst.io.vn`.
 
-- Frontend: vanilla ES modules + CSS, public website và authenticated workspace dùng cùng `public/app.js`/design system.
-- Cloudflare Pages static output: `public/`.
-- Cloudflare Pages Functions adapter: `functions/`.
-- Server/API: modules trong `src/`, entry qua worker adapter.
-- D1: auth/session/RBAC/audit/settings, business records/workflows và Website CMS.
-- R2: private object storage cho file nghiệp vụ và CMS media.
-- Email: Resend qua outbox D1/retry/idempotency hiện hữu.
-- CMS: `site_settings`, `cms_pages`, `cms_blocks`, `cms_navigation`, `cms_footer_links`, `cms_media`; V3 bổ sung `cms_revisions`.
-- Business modules được giữ: Research/Projects, Publications, Datasets, Researchers, Research Groups, Events, Tasks, Reviews, Ethics, Finance, Forms, Notifications và workflow liên quan.
-- First-time Setup hiện hữu được giữ và có regression test.
+## 2. What changed in V5
 
-Production bindings được giữ nguyên:
+- Fixed the P0 progressive-enhancement failure that could produce `HEADER → HERO → BLANK → FOOTER`: public sections are visible by default and reveal states are enabled only after the motion engine is confirmed usable.
+- Added fail-open handling for missing `IntersectionObserver`, reduced-motion mode and motion-module exceptions.
+- Added a read-only `/api/v1/public/pulse` endpoint counting only published, public D1 records.
+- Added Research Pulse UI with an explicit unavailable state; unavailable data is never presented as zero.
+- Added the Sky Research Core visual language: People → Ideas → Research → Projects → Data → Knowledge → Innovation → Impact.
+- Added 18-field taxonomy, research journey, public data pulse and Knowledge Explorer extension surfaces without inventing relationships or records.
+- Replaced the repeated editorial subpage renderer with distinct public route grammars: Research pipeline/Atlas, People constellation, Knowledge graph/inspector, Innovation sandbox and Activity timeline.
+- Added accessible mega-menu structure with title, description, icon, overview destination and keyboard/tap-friendly disclosure behavior; public Escape closes open menus.
+- Expanded Research Pulse labels to Projects, Ideas, Groups, public People, Publications, Datasets and Activities while preserving real-D1-only semantics.
+- Added public `/` Research Finder shortcut behavior and specialized `/fields` and `/research-groups` experiences.
+- Changed the public profile label to `Hồ sơ thành viên`; the system does not default every person to “nhà nghiên cứu”.
+- Added CMS Published Snapshot fallback protection: an empty/disabled/unknown CMS snapshot cannot render a successful-looking blank page.
+- Kept CMS as the editorial source when valid published blocks exist; Research OS records remain the source of truth for public records.
+- Updated package version to `5.0.0`.
 
-- D1 binding `DB` → database `tt` → ID `0a75531f-b227-4a8b-bc26-dda1cc9a0004`.
-- R2 binding `STORAGE` → bucket `ttrungtam`.
-- `APP_ORIGIN=https://research.skyfirst.io.vn`.
+## 3. Content and data integrity
 
-D1 ID production đã được đối chiếu; repository không còn tham chiếu literal tới D1 ID đã ngừng sử dụng.
+- Public pulse counts only `status='published'`, `access='public'`, non-deleted records and the allowlisted public kinds.
+- Empty public collections retain explanatory content and a clear empty state.
+- No demo or fabricated record is added by V5.
+- The 18 fields are taxonomy labels, not claims that the Center currently operates 18 specialized departments.
+- Legal positioning remains descriptive: the Center is an entity/model belonging to Sky First Network and is not represented as an independent legal person, licensed institute, university, certifying body or company without evidence.
 
-## B. Changes / file-module quan trọng
+## 4. Verification gates
 
-Các thay đổi chính của vòng V3:
+| Gate | Status | Evidence / limitation |
+|---|---|---|
+| Source integrity | PASS | Existing architecture and bindings retained; no new migration or destructive SQL. |
+| Static syntax/config | PASS | `node scripts/build.mjs`; `npm run build` completed. |
+| Automated backend/CMS/security | PASS | `npm test`: **79 PASS / 0 FAIL / 0 SKIPPED**. |
+| Public pulse endpoint | PASS | Regression test verifies numeric public counts, total consistency and cache headers. |
+| Frontend progressive enhancement | PASS (static/source) | Fail-open CSS/JS path is present and syntax/build checks pass. |
+| Local Pages/Wrangler runtime | NOT VERIFIED | Requires a working Pages/workerd runtime in the delivery environment. |
+| Browser visual acceptance | NOT VERIFIED | Chromium executable could not be installed in this environment; no browser PASS is claimed. |
+| Responsive matrix 1440/1280/1024/768/430/390/360 | NOT VERIFIED | Must be run with Chromium/Playwright after delivery. |
+| Accessibility keyboard/screen-reader audit | NOT VERIFIED | Source includes semantic/focus/reduced-motion paths, but manual/browser audit is pending. |
+| D1 remote | NOT VERIFIED | Production account/database access was unavailable. |
+| R2 remote | NOT VERIFIED | Production bucket access was unavailable. |
+| Resend/email delivery | NOT VERIFIED | Production provider secret and inbox receipt were unavailable. |
+| Cloudflare deployment | NOT VERIFIED | Deployment was not performed from this workspace. |
 
-- `public/app.js`
-  - Research Cloud workspace shell mới.
-  - Command Palette `Ctrl/Cmd + K` và `/` focus global search.
-  - CMS-managed two-level public navigation.
-  - Cloud CMS Studio dashboard.
-  - Full Page Builder với device preview, drag/reorder, duplicate, Draft/Preview/Publish.
-  - Revision browser/restore-to-Draft.
-  - R2 Media Cloud search/filter/pagination/metadata/reference check.
-  - Site Identity + Global SEO controls.
-  - Dialog lifecycle/focus cleanup và keyboard behavior.
-- `public/style.css`
-  - Research Cloud V3 design system White/Navy/Sky/Cyan.
-  - Workspace/sidebar/topbar, CMS Studio, Media Cloud, Page Builder, Command Palette.
-  - Responsive 1280/1100/850/620/430 breakpoints.
-  - Designed dark mode, focus states và reduced motion.
-  - Public two-level navigation dropdown/mobile treatment.
-- `src/cms.js`
-  - CMS overview.
-  - Bounded/paginated media search.
-  - Bounded/paginated page listing.
-  - Revision snapshots + retention.
-  - Restore revision to Draft without changing Published snapshot.
-  - Duplicate page/block.
-  - Two-level navigation.
-  - Media dimensions/description/reference inspection.
-  - Safe-delete reference protection extended to global social image.
-- `src/api.js`
-  - Setup rate limit remains enforced but misconfiguration/already-initialized states no longer consume attempts.
-  - `429` includes safe retry guidance and `Retry-After`.
-- `src/security.js`, `src/worker.js`
-  - Safe error headers can be propagated without exposing internal exception data.
-- `src/seo.js`
-  - Global CMS-managed SEO defaults/social image.
-- `migrations/0006_research_cloud_v3.sql`
-  - additive CMS revisions/navigation/media/SEO schema and indexes.
-- `tests/cms.test.mjs`, `tests/extended.test.mjs`
-  - V3 regression coverage.
+## 5. Static/build results
 
-Không tải hoặc chèn ảnh Internet. Runtime public chỉ dùng logo/asset có sẵn và media thật từ CMS/R2; visual không có media được dựng bằng CSS/HTML, không phụ thuộc ảnh AI.
+```text
+npm test
+79 PASS / 0 FAIL / 0 SKIPPED
 
-## C. UI/UX
+npm run build
+Build source validation: PASS
+Wrangler Pages Functions compilation: PASS
+```
 
-### Public website
+The browser commands were attempted but are not counted as PASS because the required Chromium executable was unavailable and the Playwright download failed in the environment.
 
-Design system tiếp tục theo hướng institutional/editorial: White + Navy + Sky Blue/Cyan, border/shadow nhẹ, typography rõ, animation dùng transform/opacity và tôn trọng `prefers-reduced-motion`.
+## 6. Route and visual audit
 
-Home/About/Explore/Contact, content cards, loading/error/empty states, header/footer/login từ source hiện hữu được giữ và polish để đồng nhất với V3. Public navigation hiện hỗ trợ tối đa hai cấp từ CMS và có dropdown desktop + stack mobile. Không thêm số liệu/đối tác/thành tích giả.
+See [`docs/ROUTE_MATRIX.md`](docs/ROUTE_MATRIX.md). The source contains public routes for Home, CMS pages, record detail, Explore, About, Contact, Privacy, editorial taxonomy pages, 404, Login/Setup/Reset and the existing Workspace/Admin hash routes.
 
-### Auth / Login / First-time Setup
+The route matrix distinguishes source/static checks from browser checks. A route must not be marked browser PASS merely because its renderer exists in JavaScript.
 
-Login/Setup giữ cùng nhận diện và backend auth hiện hữu. Setup chỉ xuất hiện khi backend trả `required=true`; sau initialized, `#setup` quay về Login. Password visibility/accessibility và error/request ID được giữ.
+## 7. Security audit
 
-### Research Management Workspace
+Preserved and regression-tested: PBKDF2 password handling, session cookies, CSRF/origin checks, RBAC, IDOR protections, SQL parameterization, private file access, setup lock/rate limiting, immutable audit behavior, safe error responses and CSP allowlists. No secret was added to frontend assets or source.
 
-- Sidebar Navy, hierarchy rõ, responsive drawer.
-- Sticky topbar, global search, account/theme controls.
-- Command Palette để điều hướng nhanh tới module thật.
-- Existing business data/workflow/RBAC không bị thay bằng fake analytics.
+## 8. Production status
 
-### Cloud CMS Studio
+This package is source-complete for the V5 code changes and has passing local automated/build verification. It is **not a claim that remote production is deployed or fully verified**. Before deployment, follow [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md), back up D1, inspect migration history and run the browser/remote acceptance gates.
 
-Dashboard CMS có KPI từ D1 thật, Pages, recent audit activity, Site Identity/SEO, Header/Navigation, Footer Builder và Media Cloud. Không dùng localStorage làm CMS persistence.
+## 9. Rollback
 
-## D. Cloud CMS / Page Builder
+Rollback is application-package based: redeploy the previous known-good Pages artifact. V5 did not add a migration, so no database rollback is required. Do not delete or reset D1/R2 data during rollback.
 
-Các chức năng có backend persistence thật:
+## 10. Integrity hash
 
-- Site identity: tên Việt/Anh, tagline, description, logo/favicon, contact/social, copyright.
-- Global SEO: title, description, default social image, theme color.
-- Navigation: CRUD, visibility, external/new-tab, ordering, parent/child tối đa 2 cấp.
-- Footer: CRUD, cột/heading/label/URL/order/visibility.
-- Pages: create/update/delete custom page; system pages được bảo vệ.
-- Block types giữ nguyên: Hero, Heading, Rich Text, Image, CTA, Statistics, Cards, Feature Grid, Partners/Links, FAQ.
-- Block create/edit/delete/enable/disable/reorder/duplicate.
-- Drag/drop reorder + ↑/↓ fallback.
-- Draft preview với Desktop/Tablet/Mobile canvas.
-- Publish tạo Published snapshot; Draft tiếp theo không rò ra public.
-- Duplicate page luôn tạo Draft + noindex.
-- Revision History: tự lưu trước thay đổi quan trọng, tối đa 50 revision/page.
-- Restore revision chỉ khôi phục Draft; Published snapshot cũ giữ nguyên tới lần Publish mới.
-
-## E. Database / migration
-
-Migration mới: **`migrations/0006_research_cloud_v3.sql`**.
-
-Additive changes:
-
-- `cms_revisions` + unique/page-created indexes.
-- index `cms_pages(status, updated_at)`.
-- `cms_navigation.parent_id` + parent/position index.
-- `cms_media.width`, `height`, `description`, `updated_at` + indexes.
-- Site Settings: `global_seo_title`, `global_seo_description`, `default_social_media_id`, `theme_color`.
-- CMS starter Home bổ sung knowledge portal block **chỉ khi Home vẫn là untouched Draft**; không auto-publish, không ghi đè page đã chỉnh/publish.
-
-Không có `DROP`, reset DB hoặc tạo database mới. `ALTER TABLE ADD COLUMN` dựa trên D1 migration history chuẩn; vì vậy trước production phải đối chiếu `d1_migrations`/schema, không chạy lại migration đã áp thủ công một cách mù quáng.
-
-## F. Media / R2
-
-Media Cloud tiếp tục dùng binding `STORAGE` và bucket `ttrungtam`:
-
-- Upload binary thật vào R2; D1 chỉ lưu metadata/reference.
-- Server-side search/filter/page/limit; `limit` bị chặn trên server.
-- PNG/GIF/JPEG/VP8X WebP có thể ghi width/height khi header hỗ trợ.
-- ALT text + description metadata.
-- Reference inspection.
-- Public media chỉ đọc được khi đang được Site Settings hoặc Published snapshot tham chiếu theo policy hiện hữu.
-- Delete bị chặn khi media đang được tham chiếu.
-- Không chấp nhận SVG trong CMS upload path hiện hữu; file size/signature/MIME validation được giữ.
-
-Remote R2 production: **NOT VERIFIED — không có Cloudflare production credentials trong môi trường này**.
-
-## G. Security
-
-Đã bảo toàn/kiểm tra bằng automated suite:
-
-- session/authentication;
-- RBAC backend enforcement;
-- CSRF/origin/`X-Requested-With` write protection;
-- IDOR/business ACL;
-- PBKDF2 password handling;
-- password reset/session revocation;
-- immutable/audited system-admin protections;
-- CMS `settings` permission; Publish cần `publish`;
-- private R2 access;
-- SQL parameterization;
-- public settings allowlist;
-- CSP không dùng wildcard script source;
-- error response chỉ trả safe message + request ID.
-
-### First-time Setup rate limiting
-
-- `SETUP_SECRET` vẫn chỉ đọc server-side.
-- Setup giới hạn 10 attempts / 15 phút / IP theo runtime hiện tại.
-- Missing server `SETUP_SECRET` và trạng thái already initialized không tiêu hao attempts.
-- Brute-force vượt ngưỡng trả HTTP `429` + `Retry-After` và message có thời gian chờ.
-- First-time Setup vẫn khóa sau khi Root Admin/initialization tồn tại.
-
-## H. Performance
-
-- Public Site/Settings cache policy hiện hữu được giữ: bounded shared caching.
-- Media Cloud dùng SQL filtering + `LIMIT/OFFSET` thay vì tải toàn library.
-- CMS Pages list hiện bounded tối đa 100/request và hỗ trợ query/status/page/limit ở API.
-- Revision list bounded 50/page và retention tự dọn revision cũ.
-- CMS overview/recent activity có `LIMIT`.
-- Không thêm N+1 media query trên public renderer.
-- Frontend motion chủ yếu transform/opacity; `prefers-reduced-motion` có override.
-
-Không đánh đổi correctness/RBAC để lấy điểm benchmark.
-
-## I. Tests — kết quả thực tế
-
-### PASS
-
-- `npm test`: **77 PASS / 0 FAIL / 0 SKIPPED**.
-- `node scripts/build.mjs`: **PASS** — syntax/config/source validation.
-- `node --check public/app.js`: **PASS**.
-- `node --check src/cms.js`: **PASS**.
-- `node --check src/api.js`: **PASS**.
-- Local D1-compatible migrations `0001` → `0006`: **PASS** thông qua test runtime fresh DB.
-- Local HTTP smoke: **10 PASS / 0 FAIL**:
-  - `/`
-  - `/about`
-  - `/explore`
-  - `/contact`
-  - `/privacy`
-  - `/robots.txt`
-  - `/sitemap.xml`
-  - `/api/v1/health`
-  - `/api/v1/public/settings`
-  - `/api/v1/public/site`
-- CMS V3 regression PASS:
-  - revision snapshot/list/read/restore;
-  - restore không thay Published trước Publish;
-  - duplicate page → Draft/noindex;
-  - nested nav 2 cấp, chặn cấp 3;
-  - Media Cloud pagination/filter/dimensions;
-  - safe media delete;
-  - Draft/Published isolation;
-  - CMS RBAC.
-- First-time Setup regression PASS:
-  - exactly PBKDF2 100,000 iterations;
-  - Root Admin creation/one-time lock;
-  - missing `SETUP_SECRET` không consume rate attempts;
-  - brute-force limit + `Retry-After`.
-
-### NOT VERIFIED
-
-- `npm run build` full Wrangler Pages Functions: **NOT VERIFIED — environment dependency unavailable**. `node scripts/build.mjs` PASS, sau đó `wrangler` không có. Một lần `npm ci` đã được thử nhưng bị treo/timeout do package download trong sandbox; không báo PASS giả.
-- `npm run test:pages`: **NOT VERIFIED — cần local Wrangler/workerd + Playwright dependency**.
-- Browser responsive/visual/console E2E: **NOT VERIFIED**. System Chromium CLI được thử nhưng treo/timeout với DBus/EGL/zygote trong sandbox; không có screenshot mới hợp lệ để dùng làm bằng chứng.
-- Cloudflare D1/R2 remote: **NOT VERIFIED — không có account credentials/control plane**.
-- Resend production delivery: **NOT VERIFIED — không có production `RESEND_API_KEY`/provider access**.
-- Production Cloudflare Analytics console after deploy: **NOT VERIFIED**.
-
-## J. Production configuration
-
-Giữ chính xác:
-
-- `DB` / `tt` / `0a75531f-b227-4a8b-bc26-dda1cc9a0004`
-- `STORAGE` / `ttrungtam`
-- `APP_ORIGIN=https://research.skyfirst.io.vn`
-- `EMAIL_FROM=Sky First Research & Innovation Center <research@skyfirst.io.vn>`
-- `EMAIL_REPLY_TO=research@skyfirst.io.vn`
-
-Server-side secrets/vars tùy chức năng:
-
-- `RESEND_API_KEY`
-- `SETUP_SECRET` — chỉ cần cho bootstrap; hệ thống đã initialized có thể không giữ secret này nếu quy trình vận hành đã hoàn tất.
-- `MAINTENANCE_SECRET`
-- `ADMIN_ALERT_EMAIL` nếu dùng.
-
-Không đưa các secret trên vào frontend/ZIP/Git.
-
-## K. Deployment order
-
-1. Backup/export D1 remote.
-2. Chạy `wrangler d1 migrations list tt --remote` và đối chiếu schema/history thật.
-3. Nếu 0001–0005 đã được áp đúng, chạy **chỉ migration còn thiếu `0006_research_cloud_v3.sql`** thông qua migration command chuẩn.
-4. Xác nhận D1/R2 binding và production variables/secrets.
-5. Trên CI/máy có network: `npm ci`.
-6. Chạy `npm test`.
-7. Chạy `npm run build` và yêu cầu full Wrangler step PASS trước deploy.
-8. Chạy `npm run test:pages`/browser suite nếu runtime có Playwright/Chromium ổn định.
-9. Deploy Pages project hiện có, output `public`, không đổi database/bucket.
-10. Smoke `/api/v1/health`, public settings/site/routes/login.
-11. Admin smoke Cloud CMS: Site Settings → Media → Page → add/edit/reorder → Save Draft → Preview → Publish → refresh public → sửa Draft → xác nhận public vẫn giữ Published → restore revision → xác nhận chỉ Draft → Publish lại.
-12. Smoke R2 và Resend thật trong production.
-
-## L. Known limitations / kết luận
-
-Source V3 đã đạt PASS cho automated Node tests, D1-compatible CMS persistence tests, setup/rate-limit regressions, source/config build validation và local HTTP smoke. Full Wrangler build, browser E2E và remote Cloudflare/Resend vẫn chưa xác minh được trong sandbox này.
-
-**Kết luận:** không tự gắn nhãn `PRODUCTION READY` trong báo cáo này cho đến khi các mục NOT VERIFIED bắt buộc phía production được chạy và PASS trên CI/Cloudflare thực tế.
-
-## V4 final audit — 2026-10-07
-
-- Implemented V4 public technology/editorial layer while preserving the existing Cloudflare/D1/R2/Auth/CMS architecture.
-- Public fallback navigation now follows six spaces: Trung tâm; Nghiên cứu; Con người & Tri thức; Đổi mới; Hoạt động; Kết nối, with second-level destinations.
-- Header public login CTA removed. Workspace access is intentionally de-emphasized in the footer.
-- Added 18-field research/interest taxonomy presentation, Research Journey, People × Knowledge relationship presentation, richer zero-data knowledge pages, and editorial fallback pages.
-- Added technology visual layer, orbital motion, pointer glow, reveal motion, responsive adaptations, dark surfaces and prefers-reduced-motion handling.
-- No new D1 migration. No database reset. No new D1/R2 resource.
-- Automated test suite: PASS — 77/77, 0 failed, 0 skipped.
-- `node --check public/app.js`: PASS.
-- `node scripts/build.mjs`: PASS.
-- Full Wrangler Pages build: NOT VERIFIED — Wrangler dependency is not installed in this execution environment.
-- Remote production D1/R2/Resend and deployed-browser E2E: NOT VERIFIED — no production credentials/deployment session used.
+`SHA-256 (manifest of public/, functions/, src/, migrations/, scripts/ and tests/): 41cda6e4842827f431c527238c7287f5915746e4f377938eab60f76587f8e77d`

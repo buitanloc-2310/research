@@ -263,7 +263,7 @@ export const STAGES = [
 ];
 Object.assign(CATALOG, {
   profiles: {
-    label: "Nhà nghiên cứu",
+    label: "Hồ sơ thành viên",
     icon: "♧",
     intro: "Hồ sơ chuyên môn và đóng góp.",
     fields: [

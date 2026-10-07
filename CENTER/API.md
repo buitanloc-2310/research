@@ -12,6 +12,7 @@ API version hiện tại: `/api/v1`. Alias `/api` được giữ cho các script
 | `/sessions`                            | GET, DELETE        | Liệt kê / thu hồi tất cả phiên của chính mình                |
 | `/public/settings`                     | GET                | Nội dung cấu hình công khai                                  |
 | `/public/search`                       | GET                | Tìm nội dung đã công bố, q/kind/page, 24 hàng/trang          |
+| `/public/pulse`                        | GET                | Đếm hồ sơ public theo loại; chỉ từ D1 records đã công bố     |
 | `/public/records/:id`                  | GET                | Chi tiết công khai, danh sách tệp và số lượt truy cập        |
 | `/public/related?id=:id`               | GET                | Công trình công khai liên quan profile/nhóm                  |
 | `/public/files/:id`                    | GET                | Tệp thuộc hồ sơ đã công bố Public                            |
@@ -132,3 +133,7 @@ Admin routes below keep the same authenticated session, same-origin/CSRF protect
 - Media metadata includes `width`, `height`, `description` and `updated_at` when available.
 
 First-time Setup 429 responses may include `Retry-After`; server misconfiguration (`SETUP_SECRET` missing) and already-initialized states are checked before consuming a setup attempt.
+
+## Research Digital Campus V5
+
+`GET /api/v1/public/pulse` is intentionally read-only and bounded to the public allowlist. It returns `{counts,total,source}` and never includes private/internal records, users, finance, audit data or CMS drafts. If the public client cannot retrieve it, the Research Pulse UI shows an unavailable state rather than substituting zero or fabricated statistics.

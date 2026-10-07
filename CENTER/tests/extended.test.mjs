@@ -105,6 +105,32 @@ test("public SEO: content rendered and metadata escaped", async () => {
   assert(!html.includes("<script>evil</script>"));
   assert(html.includes('rel="canonical"'));
 });
+test("public research pulse counts only genuinely public records", async () => {
+  const x = await call("/api/v1/public/pulse");
+  assert.equal(x.status, 200);
+  assert.equal(x.d.source, "public-d1-records");
+  for (const kind of ["publications", "events", "projects", "datasets", "contributions"])
+    assert.equal(typeof x.d.counts[kind], "number");
+  assert.equal(x.d.total, Object.values(x.d.counts).reduce((sum, value) => sum + value, 0));
+  assert(x.d.counts.publications >= 1);
+  assert(x.d.counts.datasets >= 1);
+  assert.match(x.r.headers.get("cache-control") || "", /s-maxage=120/);
+});
+test("V5 public campus has progressive enhancement and distinct route grammars", () => {
+  const app = readFileSync("public/app.js", "utf8");
+  const css = readFileSync("public/style.css", "utf8");
+  const catalog = readFileSync("public/catalog.js", "utf8");
+  assert.match(app, /async function renderCampusRoute/);
+  assert.match(app, /RESEARCH ATLAS · PIPELINE/);
+  assert.match(app, /PEOPLE CONSTELLATION/);
+  assert.match(app, /KNOWLEDGE EXPLORER · GRAPH/);
+  assert.match(app, /INNOVATION SANDBOX · EXPERIMENTAL FLOW/);
+  assert.match(app, /ACTIVITY TIMELINE/);
+  assert.match(app, /location\.href = "\/explore\?focus=1"/);
+  assert.match(css, /html\.motion-ready:not\(\.motion-disabled\)/);
+  assert.match(css, /\.public-nav-group>summary/);
+  assert.match(catalog, /profiles:\s*\{\s*label: "Hồ sơ thành viên"/s);
+});
 test("public sitemap: excludes confidential draft", async () => {
   const x = await call("/sitemap.xml");
   const body = await x.r.text();
