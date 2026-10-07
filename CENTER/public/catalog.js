@@ -250,6 +250,10 @@ export const PUBLIC_KINDS = [
   "projects",
   "datasets",
   "contributions",
+  "profiles",
+  "teams",
+  "impacts",
+  "ideas",
 ];
 export const STAGES = [
   "draft",
@@ -263,7 +267,7 @@ export const STAGES = [
 ];
 Object.assign(CATALOG, {
   profiles: {
-    label: "Hồ sơ thành viên",
+    label: "Nhà nghiên cứu",
     icon: "♧",
     intro: "Hồ sơ chuyên môn và đóng góp.",
     fields: [

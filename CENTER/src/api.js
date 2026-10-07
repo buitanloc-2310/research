@@ -413,30 +413,6 @@ export async function api(req, env) {
       page,
     });
   }
-  if (p === "/api/public/pulse") {
-    // This endpoint intentionally counts only records that are already public.
-    // It is a read-only observatory feed, not a CMS statistic or a seeded demo.
-    const rows = await all(
-      env,
-      `SELECT kind,COUNT(*) n
-       FROM records
-       WHERE deleted=0 AND status='published' AND access='public'
-         AND kind IN (${PUBLIC_KINDS.map(() => "?").join(",")})
-       GROUP BY kind`,
-      ...PUBLIC_KINDS,
-    );
-    const counts = Object.fromEntries(PUBLIC_KINDS.map((kind) => [kind, 0]));
-    for (const row of rows) counts[row.kind] = Number(row.n) || 0;
-    return json(
-      {
-        counts,
-        total: Object.values(counts).reduce((sum, value) => sum + value, 0),
-        source: "public-d1-records",
-      },
-      200,
-      { "cache-control": "public,max-age=30,s-maxage=120,stale-while-revalidate=300" },
-    );
-  }
   if (p === "/api/public/related") {
     const target = await record(env, url.searchParams.get("id"));
     if (

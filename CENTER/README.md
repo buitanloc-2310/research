@@ -1,11 +1,9 @@
-# SKY FIRST RESEARCH DIGITAL CAMPUS V5
-
-## TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST
+# TRUNG TÂM NGHIÊN CỨU ĐỔI MỚI & SÁNG TẠO SKY FIRST
 
 **SKY FIRST RESEARCH & INNOVATION CENTER**  
 Production: `https://research.skyfirst.io.vn`
 
-Source production cho một Cloudflare Pages project gồm public website, login/workspace, Admin, Cloud CMS Studio, Pages Functions/API, D1 và private R2. V5 tiếp tục trực tiếp trên kiến trúc có sẵn; không chuyển framework, không tạo database/bucket mới và không chứa secret production. V5 ưu tiên root-cause của blank public page, progressive enhancement, Research Pulse dữ liệu thật và Research Technology visual layer.
+Source production cho một Cloudflare Pages project gồm public website, login/workspace, Admin, Cloud CMS Studio, Pages Functions/API, D1 và private R2. Bản này tiếp tục trực tiếp trên kiến trúc có sẵn; không chuyển framework, không tạo database/bucket mới và không chứa secret production.
 
 ## 1. Production bindings cố định
 
@@ -33,8 +31,6 @@ Không thay D1/R2 ở trên. Không đưa bất kỳ D1 ID đã nghỉ hưu nào
 - `tests/`: automated tests và browser/Pages harness.
 - `scripts/`: local runtime, seed, build/config helpers.
 - `FINAL_ACCEPTANCE.md`: báo cáo nghiệm thu của vòng Production Final này.
-- `docs/ROUTE_MATRIX.md`: ma trận route và trạng thái browser/static.
-- `docs/PRODUCTION_RUNBOOK.md`: thứ tự kiểm tra và triển khai production.
 
 ZIP bàn giao phải có đúng một top-level folder `CENTER/`. Không deploy `node_modules`, `.git`, `.local`, `.build` hoặc secret file.
 
